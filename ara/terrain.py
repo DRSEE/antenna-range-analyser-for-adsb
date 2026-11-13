@@ -32,7 +32,7 @@ class Terrain:
         self.tiles = {}
         self.state = {'status': 'absent', 'tiles': 0, 'needed': 0, 'error': None}
         if os.path.isdir(self.dir) and os.listdir(self.dir):
-            self.state['status'] = 'prêt'
+            self.state['status'] = 'ready'
 
     # ------------------------------------------------------------ tuiles
     def needed(self, lat0, lon0):
@@ -45,7 +45,7 @@ class Terrain:
     def fetch(self, lat0, lon0):
         """Télécharge les tuiles manquantes (à lancer dans un thread)."""
         tiles = self.needed(lat0, lon0)
-        self.state.update(status='téléchargement', needed=len(tiles), tiles=0, error=None)
+        self.state.update(status='downloading', needed=len(tiles), tiles=0, error=None)
         try:
             for x, y in tiles:
                 path = os.path.join(self.dir, f'{x}_{y}.png')
@@ -60,9 +60,9 @@ class Terrain:
                     time.sleep(0.2)
                 self.state['tiles'] += 1
             self.tiles.clear()
-            self.state['status'] = 'prêt'
+            self.state['status'] = 'ready'
         except Exception as e:
-            self.state.update(status='erreur', error=str(e))
+            self.state.update(status='error', error=str(e))
 
     def _tile(self, x, y):
         key = (x, y)

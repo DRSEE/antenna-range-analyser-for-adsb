@@ -1,158 +1,154 @@
 # 📡 Antenna Range Analyser for ADS-B
 
-Mesurez **le diagramme de rayonnement réel** et **la portée** de votre antenne ADS-B à partir des avions que vous recevez, puis
-comparez deux installations : antenne seule, avec déflecteur, plus haute, autre câble…
+Measure the **real radiation pattern** and **range** of your ADS-B antenna from the aircraft you actually receive, then compare
+two installations: bare antenna, with a reflector, mounted higher, different cable…
 
-L'outil tourne à côté de `readsb` (image ADSBexchange, piaware, adsb.im…). Les mesures viennent uniquement du récepteur, sans
-matériel supplémentaire, et s'affichent dans une page web en temps réel. En option, le relief (données ouvertes) permet de
-savoir si une zone d'ombre vient d'une montagne ou d'un obstacle tout proche.
+It runs next to `readsb` (ADSBexchange image, piaware, adsb.im…). Measurements come only from your receiver, with no extra
+hardware, and are shown in a live web page. Optionally, open terrain data tells you whether a blind sector is caused by a
+mountain or by something right next to the antenna.
 
-![Portée par azimut](docs/images/portee.png)
+![Measured coverage over terrain](docs/images/relief-3d.png)
 
 ---
 
-## Ce que l'on obtient
+## What you get
 
-| Onglet | Contenu |
+| Tab | Content |
 |---|---|
-| **Temps réel** | Avions reçus (azimut, distance, RSSI), messages par minute, signal et bruit, RSSI en fonction de la distance avec la pente théorique d'espace libre |
-| **Portée** | Portée par azimut : maximum, 95e centile, médiane, par tranche d'altitude ; horizon radio théorique ; meilleur et plus faible secteur |
-| **Diagramme** | Diagramme de rayonnement **mesuré** : plan horizontal, plan vertical (selon l'élévation) et **diagramme 3D** |
-| **Relief & 3D** | Volume de couverture en 3D sur le relief ; masque d'horizon mesuré comparé à celui du relief ; diagnostic par secteur (relief ou obstacle local) ; profil RF d'un azimut avec rayon rasant et première zone de Fresnel |
-| **Comparaison** | Deux campagnes ou périodes superposées : écart de gain (dB) et de portée (km) par azimut |
-| **Campagnes & réglages** | Démarrer ou arrêter une campagne de mesure par configuration d'antenne ; altitude de l'antenne ; probabilité de détection (option) |
+| **Live** | Received aircraft (azimuth, distance, RSSI), messages per minute, signal and noise, RSSI versus distance with the free-space slope |
+| **Range** | Range by azimuth: maximum, 95th percentile, median, per altitude band; theoretical radio horizon; best and weakest sector |
+| **Pattern** | **Measured** radiation pattern: horizontal plane, vertical plane (versus elevation) and **3D pattern** |
+| **Terrain & 3D** | 3D coverage volume over the terrain; measured horizon mask versus terrain mask; per-sector diagnosis (terrain or local obstruction); RF profile of an azimuth with grazing ray and first Fresnel zone |
+| **Compare** | Two campaigns or periods overlaid: gain difference (dB) and range difference (km) by azimuth |
+| **Campaigns & settings** | Start or stop a measurement campaign per antenna setup; antenna altitude; detection probability (optional) |
 
-![Temps réel](docs/images/temps-reel.png)
-
----
-
-## Méthode
-
-Pour chaque avion, `readsb` fournit la distance et le relèvement depuis le récepteur (`r_dst`, `r_dir`), l'altitude et la
-puissance reçue (`rssi`, en dBFS). Toutes les 10 s, l'outil enregistre une mesure par avion.
-
-**Portée** : la distance des avions reçus, regroupée par secteur de 5°. Le 95e centile est plus fiable que le maximum, qui
-dépend d'un seul avion exceptionnel. L'horizon radio théorique (rayon terrestre « radio », k = 4/3) sert de référence :
-
-```
-d_horizon (km) ≈ 4,12 × (√h_antenne + √h_avion)      hauteurs en mètres
-```
-
-**Diagramme de rayonnement** : la puissance reçue vaut
-
-```
-RSSI = P_transpondeur + G_avion + G_antenne(azimut, élévation) − FSPL(d) − pertes
-FSPL = 20 log10(d_km) + 20 log10(1090) + 32,44 dB
-```
-
-L'**indice de gain** `RSSI + FSPL` ne dépend donc plus que du gain de votre antenne dans la direction de l'avion, de la
-puissance propre de son transpondeur et d'une constante. Avec des milliers de mesures sur des centaines d'avions, la
-puissance des transpondeurs se moyenne. L'outil retire en plus la part propre à chaque avion par **moindres carrés alternés**
-(`mesure = G(direction) + P(avion)`, P centrée sur 0) : le diagramme est plus net et le niveau absolu est conservé, ce qui
-permet de comparer deux campagnes.
-
-L'élévation de chaque avion est calculée avec la courbure terrestre et la réfraction standard, à partir de l'altitude de
-l'antenne que vous renseignez. Elle est recalculée à chaque analyse : corriger l'altitude s'applique aussi au passé.
-
-**Masque d'horizon et relief** : dans chaque direction, l'élévation la plus basse à laquelle des avions sont encore reçus
-(2e centile) dessine ce qui bloque le signal. Elle est comparée au masque **prédit par le relief** : angle maximal du terrain
-vu de l'antenne, courbure terrestre et réfraction comprises, avec la crête responsable (distance, altitude).
-
-- masque mesuré ≈ masque du relief : c'est la montagne ;
-- masque mesuré nettement plus haut (plus de 1°) : **obstacle local** (immeuble, toit, mur, mât) que le relief n'explique pas.
-
-Le **profil RF** d'un azimut montre le relief en hauteur apparente (courbure retirée, les ondes vont en ligne droite), le rayon
-rasant qui frôle l'obstacle le plus haut, la première zone de Fresnel (`17,3 √(d₁d₂ / (f·d))` m) et tous les avions reçus dans
-cette direction.
-
-### Limites à connaître
-
-- **Biais de détection** : aux grandes distances, seuls les signaux assez forts sont décodés, ce qui surestime un peu le gain
-  aux très basses élévations.
-- **Saturation** : au-dessus de −3 dBFS, le RSSI ne mesure plus rien ; ces points sont écartés. Beaucoup de « signaux forts »
-  dans l'onglet Temps réel signalent un gain de réception trop élevé.
-- **Couverture du ciel** : les directions sans trafic (pas de couloir aérien, relief) restent vides. Chaque case affichée
-  réunit au moins 5 mesures (médiane).
-- **Comparaisons** : le trafic change selon l'heure et le jour. Comparez des campagnes de durée et d'horaires proches, sur
-  plusieurs heures.
-- C'est une mesure **relative** sur données réelles, pas une mesure en chambre anéchoïque.
+![Range by azimuth](docs/images/portee.png)
 
 ---
 
-## Comparer deux installations (exemple : ajout d'un déflecteur)
+## Method
 
-1. Onglet **Campagnes** : démarrez la campagne « dipôle seul ». Laissez tourner quelques heures, idéalement une journée.
-2. Arrêtez-la, installez le déflecteur, démarrez la campagne « avec déflecteur » pour une durée et des horaires comparables.
-3. Onglet **Comparaison** : A = « dipôle seul », B = « avec déflecteur ». Vous lisez l'écart de gain en dB et l'écart de portée
-   en km par azimut : gain vers l'avant, perte vers l'arrière, effet sur la portée.
+For every aircraft, `readsb` provides the distance and bearing from the receiver (`r_dst`, `r_dir`), the altitude and the received
+power (`rssi`, in dBFS). Every 10 s the tool stores one sample per aircraft.
 
-Les mesures d'une campagne sont conservées sans limite de durée. Les autres sont purgées après 7 jours (réglable).
+**Range**: distance of received aircraft, grouped in 5° sectors. The 95th percentile is more reliable than the maximum, which
+depends on a single exceptional aircraft. The theoretical radio horizon (radio Earth radius, k = 4/3) is the reference:
+
+```
+d_horizon (km) ≈ 4.12 × (√h_antenna + √h_aircraft)      heights in metres
+```
+
+**Radiation pattern**: the received power is
+
+```
+RSSI = P_transponder + G_aircraft + G_antenna(azimuth, elevation) − FSPL(d) − losses
+FSPL = 20 log10(d_km) + 20 log10(1090) + 32.44 dB
+```
+
+The **gain index** `RSSI + FSPL` therefore only depends on your antenna's gain towards the aircraft, the aircraft's own
+transponder power and a constant. Over thousands of samples from hundreds of aircraft, transponder power averages out. The tool
+also removes each aircraft's own contribution by **alternating least squares** (`sample = G(direction) + P(aircraft)`, P centred on
+0): the pattern is sharper and the absolute level is kept, so two campaigns can be compared.
+
+Each aircraft's elevation is computed with Earth curvature and standard refraction, from the antenna altitude you enter. It is
+recomputed at every analysis: correcting the altitude also applies to past samples.
+
+**Horizon mask and terrain**: in each direction, the lowest elevation at which aircraft are still received (2nd percentile) traces
+whatever blocks the signal. It is compared with the mask **predicted from terrain**: highest terrain angle seen from the antenna,
+curvature and refraction included, with the responsible ridge (distance, altitude).
+
+- measured mask ≈ terrain mask: it is the mountain;
+- measured mask clearly higher (more than 1°): **local obstruction** (building, roof, wall, mast) that terrain does not explain.
+
+The **RF profile** of an azimuth shows terrain as apparent height (curvature removed, so radio waves travel in straight lines), the
+grazing ray that touches the highest obstacle, the first Fresnel zone (`17.3 √(d₁d₂ / (f·d))` m) and every aircraft received in
+that direction.
+
+### Limits
+
+- **Detection bias**: at long range only strong enough signals are decoded, which slightly overestimates the gain at very low
+  elevations.
+- **Saturation**: above −3 dBFS RSSI no longer measures anything; those samples are dropped. Many "strong signals" in the Live tab
+  suggest the receiver gain is too high.
+- **Sky coverage**: directions without traffic (no airway, terrain) stay empty. Each displayed cell holds at least 5 samples
+  (median).
+- **Comparisons**: traffic depends on time and day. Compare campaigns of similar length and time of day, over several hours.
+- This is a **relative** measurement on real-world data, not an anechoic-chamber measurement.
+
+---
+
+## Comparing two installations (example: adding a reflector)
+
+1. **Campaigns** tab: start the "bare dipole" campaign. Let it run a few hours, ideally a full day.
+2. Stop it, fit the reflector, start the "with reflector" campaign for a similar duration and time of day.
+3. **Compare** tab: A = "bare dipole", B = "with reflector". You read the gain difference in dB and the range difference in km by
+   azimuth: gain to the front, loss to the back, effect on range.
+
+Samples belonging to a campaign are kept with no time limit. Other samples are purged after 7 days (configurable).
 
 ---
 
 ## Installation
 
-Prérequis : `readsb` (qui écrit `/run/readsb/aircraft.json`), Python 3.7 ou plus récent, `numpy` ; `Pillow` pour le relief.
+Requirements: `readsb` (writing `/run/readsb/aircraft.json`), Python 3.7 or newer, `numpy`; `Pillow` for terrain.
 
 ```bash
 git clone https://github.com/DRSEE/antenna-range-analyser-for-adsb.git ~/antenna-range-analyser
 cd ~/antenna-range-analyser
-cp config.example.json config.local.json      # puis renseigner antenna_alt_m
-python3 run.py                                # http://<ip-du-pi>:5002
+cp config.example.json config.local.json      # then set antenna_alt_m
+python3 run.py                                # http://<pi-ip>:5002
 ```
 
-En service :
+As a service:
 
 ```bash
 sudo cp antenna-range-analyser.service /etc/systemd/system/
 sudo systemctl enable --now antenna-range-analyser
 ```
 
-Au démarrage, l'historique récent de tar1090 (`/run/tar1090`, positions sans RSSI) est importé : la carte de portée est
-remplie tout de suite. Le diagramme de rayonnement se construit ensuite en temps réel.
+On start-up, recent tar1090 history (`/run/tar1090`, positions without RSSI) is imported, so the range map is filled straight
+away. The radiation pattern then builds up live.
 
-### Configuration (`config.local.json`, non versionné)
+### Configuration (`config.local.json`, not versioned)
 
-| Clé | Rôle | Défaut |
+| Key | Purpose | Default |
 |---|---|---|
-| `antenna_alt_m` | Altitude de l'antenne (sol + mât), en mètres au-dessus de la mer | à renseigner |
-| `geoid_offset_m` | Écart entre altitude GNSS (WGS84) et altitude ; environ 50 m en France | 0 |
-| `sample_interval_s` | Une mesure par avion toutes les N secondes | 10 |
-| `retention_days` | Conservation des mesures hors campagne | 7 |
-| `port` | Port de la page web | 5002 |
-| `reference.enabled` | Probabilité de détection à partir d'un réseau communautaire (voir ci-dessous) | `false` |
+| `antenna_alt_m` | Antenna altitude (ground + mast), metres above sea level | to set |
+| `geoid_offset_m` | Difference between GNSS (WGS84) altitude and altitude; about 50 m in France | 0 |
+| `sample_interval_s` | One sample per aircraft every N seconds | 10 |
+| `retention_days` | Retention of samples outside campaigns | 7 |
+| `port` | Web page port | 5002 |
+| `reference.enabled` | Detection probability from a community network (see below) | `false` |
 
-La position de la station n'est jamais écrite dans le dépôt : elle est lue au besoin dans `receiver.json` de `readsb`.
+The station position is never written in the repository: it is read when needed from `readsb`'s `receiver.json`.
 
-### Relief (option, à la demande)
+### Terrain (optional, on demand)
 
-Le bouton **Charger le relief** (onglet Relief & 3D) télécharge une fois une cinquantaine de tuiles d'altitude du jeu de données
-ouvert [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (format Terrarium, zoom 8, ≈ 400 m par pixel), sur
-environ 300 km autour de la station. Elles sont gardées dans `data/terrain/`. **Le service voit la zone téléchargée** ; rien
-d'autre n'est transmis. Pillow (`python3-pil`) est nécessaire pour lire les tuiles.
+The **Load terrain** button (Terrain & 3D tab) downloads about fifty elevation tiles once from the open
+[AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) dataset (Terrarium format, zoom 8, ≈ 400 m per pixel), about
+300 km around the station. They are kept in `data/terrain/`. **The service sees the area downloaded**; nothing else is sent.
 
-### Probabilité de détection (option)
+### Detection probability (optional)
 
-Si `reference.enabled` vaut `true`, l'outil interroge chaque minute un réseau communautaire (par défaut `api.adsb.lol`) pour
-connaître les avions présents autour de la station, puis regarde lesquels votre récepteur entend. Vous obtenez le pourcentage
-d'avions détectés selon la distance. **Cette requête transmet la position de la station au service interrogé** : c'est
-pourquoi l'option est désactivée par défaut.
+When `reference.enabled` is `true`, the tool queries a community network (`api.adsb.lol` by default) every minute for the aircraft
+around the station, then checks which ones your receiver hears. You get the share of aircraft detected versus distance. **This
+request sends the station position to the queried service**, which is why the option is off by default.
 
 ---
 
 ## API
 
-| Route | Contenu |
+| Route | Content |
 |---|---|
-| `GET /api/live` | Avions reçus à l'instant, statistiques readsb |
-| `GET /api/range?campaign=<id \| h24>&band=all\|low\|mid\|high` | Portée par azimut |
-| `GET /api/pattern?campaign=…&el_lo=0&el_hi=10&az=&half=30&correct=1` | Diagramme : grille 3D, plans horizontal et vertical |
-| `GET /api/compare?a=…&b=…` | Comparaison de deux campagnes ou périodes |
-| `GET /api/detection?campaign=…` | Probabilité de détection (référence externe) |
-| `GET /api/coverage3d?campaign=…` | Volume de couverture (azimut × altitude) et masque d'horizon mesuré |
-| `GET /api/terrain` · `POST /api/terrain` | Masque du relief et grille 3D · lancement du téléchargement du relief |
-| `GET /api/profile?az=…&campaign=…` | Profil RF : relief, avions reçus et enveloppe basse le long d'un azimut |
-| `GET/POST /api/campaigns` | Liste, démarrage, arrêt, suppression des campagnes |
+| `GET /api/live` | Aircraft received right now, readsb statistics |
+| `GET /api/range?campaign=<id \| h24>&band=all\|low\|mid\|high` | Range by azimuth |
+| `GET /api/pattern?campaign=…&el_lo=0&el_hi=10&az=&half=30&correct=1` | Pattern: 3D grid, horizontal and vertical planes |
+| `GET /api/compare?a=…&b=…` | Comparison of two campaigns or periods |
+| `GET /api/coverage3d?campaign=…` | Coverage volume (azimuth × altitude) and measured horizon mask |
+| `GET /api/terrain` · `POST /api/terrain` | Terrain mask and 3D grid · start the terrain download |
+| `GET /api/profile?az=…&campaign=…` | RF profile: terrain, received aircraft and lower envelope along an azimuth |
+| `GET /api/detection?campaign=…` | Detection probability (external reference) |
+| `GET/POST /api/campaigns` | List, start, stop, delete campaigns |
 
 ## Tests
 
@@ -160,9 +156,9 @@ pourquoi l'option est désactivée par défaut.
 python3 -m unittest discover tests
 ```
 
-Le test de diagramme simule une antenne avec un lobe de +6 dB et des transpondeurs de puissances différentes (±5 dB), et
-vérifie que la correction par avion retrouve le lobe.
+The pattern test simulates an antenna with a +6 dB lobe and transponders of different power (±5 dB), and checks that the
+per-aircraft correction recovers the lobe.
 
 ## Licence
 
-MIT, voir [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

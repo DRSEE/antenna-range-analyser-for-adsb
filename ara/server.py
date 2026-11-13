@@ -86,7 +86,7 @@ def make_handler(cfg, store, collector):
                 if u.path == '/api/terrain':
                     lat0, lon0 = receiver_position(cfg)
                     out = {'state': terrain.state, 'antenna_alt_m': cfg['antenna_alt_m']}
-                    if terrain.state['status'] == 'prêt' and lat0 is not None and cfg['antenna_alt_m'] is not None:
+                    if terrain.state['status'] == 'ready' and lat0 is not None and cfg['antenna_alt_m'] is not None:
                         key = (cfg['antenna_alt_m'],)
                         if terrain_cache.get('key') != key:
                             terrain_cache.update(key=key, mask=terrain.mask(lat0, lon0, cfg['antenna_alt_m']),
@@ -104,7 +104,7 @@ def make_handler(cfg, store, collector):
                     out = {'label': label, 'az': az, 'antenna_alt_m': cfg['antenna_alt_m'],
                            'aircraft': analysis.azimuth_points(store, t0, t1, az)}
                     lat0, lon0 = receiver_position(cfg)
-                    if terrain.state['status'] == 'prêt' and lat0 is not None and cfg['antenna_alt_m'] is not None:
+                    if terrain.state['status'] == 'ready' and lat0 is not None and cfg['antenna_alt_m'] is not None:
                         d, h, drop, ang = terrain.profile(lat0, lon0, az, cfg['antenna_alt_m'])
                         out['terrain'] = {'dist': d.round(1).tolist(), 'alt_m': [None if v != v else int(v) for v in h],
                                           'drop_m': drop.round().tolist(), 'angle': [None if v != v else round(float(v), 3) for v in ang]}
@@ -112,26 +112,26 @@ def make_handler(cfg, store, collector):
                 if u.path == '/api/detection':
                     t0, t1, label = period(q)
                     return self.send(200, {**analysis.detection(store, t0, t1), 'label': label})
-                self.send(404, {'error': 'introuvable'})
+                self.send(404, {'error': 'not found'})
             except (ValueError, KeyError) as e:
                 self.send(400, {'error': str(e)})
             except Exception as e:
-                print(f'GET {u.path} : {e!r}')
-                self.send(500, {'error': 'erreur interne'})
+                print(f'GET {u.path}: {e!r}')
+                self.send(500, {'error': 'internal error'})
 
         def do_POST(self):
             u = urlparse(self.path)
             try:
                 n = int(self.headers.get('Content-Length') or 0)
                 if n > 10000:
-                    raise ValueError('requête trop grande')
+                    raise ValueError('request too large')
                 body = json.loads(self.rfile.read(n) or b'{}')
                 if u.path == '/api/campaigns':
                     act = body.get('action')
                     if act == 'start':
                         name = str(body.get('name') or '').strip()[:80]
                         if not name:
-                            raise ValueError('nom de campagne requis')
+                            raise ValueError('campaign name required')
                         return self.send(200, {'id': store.start_campaign(name, str(body.get('notes') or '')[:500])})
                     if act == 'stop':
                         store.stop_campaign(int(body['id']))
@@ -139,12 +139,12 @@ def make_handler(cfg, store, collector):
                     if act == 'delete':
                         store.delete_campaign(int(body['id']))
                         return self.send(200, {'ok': True})
-                    raise ValueError('action inconnue')
+                    raise ValueError('unknown action')
                 if u.path == '/api/terrain':
                     lat0, lon0 = receiver_position(cfg)
                     if lat0 is None:
-                        raise ValueError('position du récepteur introuvable (receiver.json)')
-                    if terrain.state['status'] != 'téléchargement':
+                        raise ValueError('receiver position not found (receiver.json)')
+                    if terrain.state['status'] != 'downloading':
                         Thread(target=terrain.fetch, args=(lat0, lon0), daemon=True).start()
                         terrain_cache.clear()
                     return self.send(200, {'ok': True})
@@ -152,7 +152,7 @@ def make_handler(cfg, store, collector):
                     alt = body.get('antenna_alt_m')
                     alt = None if alt in (None, '') else float(alt)
                     if alt is not None and not -100 <= alt <= 5000:
-                        raise ValueError('altitude hors bornes (−100 à 5 000 m)')
+                        raise ValueError('altitude out of range (−100 to 5000 m)')
                     local = {}
                     if os.path.exists(LOCAL):
                         with open(LOCAL, encoding='utf-8') as f:
@@ -163,7 +163,7 @@ def make_handler(cfg, store, collector):
                     cfg['antenna_alt_m'] = alt
                     analysis._cache.clear()
                     return self.send(200, {'ok': True, 'antenna_alt_m': alt})
-                self.send(404, {'error': 'introuvable'})
+                self.send(404, {'error': 'not found'})
             except (ValueError, KeyError, TypeError) as e:
                 self.send(400, {'error': str(e)})
 
@@ -173,5 +173,5 @@ def make_handler(cfg, store, collector):
 def serve(cfg, store, collector):
     httpd = ThreadingHTTPServer((cfg['host'], cfg['port']), make_handler(cfg, store, collector))
     httpd.daemon_threads = True
-    print(f"Analyseur de portée : http://<ip-du-pi>:{cfg['port']}")
+    print(f"Antenna Range Analyser: http://<pi-ip>:{cfg['port']}")
     httpd.serve_forever()

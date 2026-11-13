@@ -11,10 +11,10 @@ if __name__ == '__main__':
     cfg = config.load()
     store = Store(cfg['data_dir'])
     if cfg['antenna_alt_m'] is None:
-        print("⚠️  antenna_alt_m non renseignée : portée disponible, diagramme d'élévation indisponible "
-              '(à régler dans la page web ou config.local.json)')
+        print('⚠️  antenna_alt_m not set: range available, radiation pattern unavailable '
+              '(set it in the web page or config.local.json)')
     collector = Collector(cfg, store)
-    Thread(target=lambda: print(f'historique tar1090 : {import_tar1090(cfg, store)} échantillons importés'),
+    Thread(target=lambda: print(f'tar1090 history: {import_tar1090(cfg, store)} samples imported'),
            daemon=True).start()
     Thread(target=collector.run, daemon=True).start()
     Thread(target=reference_loop, args=(cfg, store, collector), daemon=True).start()

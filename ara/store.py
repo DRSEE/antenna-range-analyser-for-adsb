@@ -121,7 +121,7 @@ class Store:
             r = con.execute('SELECT * FROM campaigns WHERE id = ?', (campaign,)).fetchone()
             con.close()
             if not r:
-                raise ValueError('campagne inconnue')
+                raise ValueError('unknown campaign')
             return r['t0'], r['t1'] or now, r['name']
         h = float(hours or 24)
-        return now - h * 3600, now, f'{h:g} dernières heures'
+        return now - h * 3600, now, f'last {h:g} h'

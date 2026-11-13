@@ -120,7 +120,7 @@ def _cut(values, keys, edges_or_n, min_n=MIN_N):
 def pattern(store, t0, t1, correct=True, el_lo=0.0, el_hi=10.0, az_center=None, az_half=180.0, max_dist_km=None,
             antenna_alt_m=None):
     if antenna_alt_m is None:
-        return {'samples': 0, 'reason': "altitude de l'antenne non renseignée"}
+        return {'samples': 0, 'reason': 'antenna altitude not set'}
     d = _load(store, t0, t1, True, antenna_alt_m)
     if d is None:
         return {'samples': 0}

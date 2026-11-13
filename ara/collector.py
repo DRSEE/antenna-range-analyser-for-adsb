@@ -74,7 +74,7 @@ class Collector:
             try:
                 buf += self.poll()
             except Exception as e:
-                print(f'collecte : {e}')
+                print(f'collector: {e}')
             now = time.time()
             if now - last_flush >= 10:
                 self.store.add_samples(buf)
@@ -144,5 +144,5 @@ def reference_loop(cfg, store, collector):
                              a['alt_baro'], 1 if a['hex'] in local else 0))
             store.add_reference(rows)
         except Exception as e:
-            print(f'référence : {e}')
+            print(f'reference: {e}')
         time.sleep(max(30, ref['interval_s']))

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -55,151 +55,150 @@ td.n { font-family:var(--mono); text-align:right; }
     Antenna Range Analyser <span class="live"></span>
   </div>
   <nav id="nav">
-    <button data-t="live" class="on">Temps réel</button>
-    <button data-t="range">Portée</button>
-    <button data-t="pattern">Diagramme</button>
-    <button data-t="relief">Relief &amp; 3D</button>
-    <button data-t="compare">Comparaison</button>
-    <button data-t="camp">Campagnes &amp; réglages</button>
+    <button data-t="live" class="on">Live</button>
+    <button data-t="range">Range</button>
+    <button data-t="pattern">Pattern</button>
+    <button data-t="relief">Terrain &amp; 3D</button>
+    <button data-t="compare">Compare</button>
+    <button data-t="camp">Campaigns &amp; settings</button>
   </nav>
   <div class="spacer"></div>
-  <label class="note" for="period">Période</label>
+  <label class="note" for="period">Period</label>
   <select id="period"></select>
 </header>
 
 <main>
-  <div class="warnbox" id="warn-alt">Altitude de l'antenne non renseignée : la portée est disponible, mais pas le diagramme de rayonnement
-    (il faut l'élévation de chaque avion). Renseignez-la dans <b>Campagnes &amp; réglages</b> : les mesures déjà collectées seront utilisées.</div>
+  <div class="warnbox" id="warn-alt">Antenna altitude not set: range is available, but not the radiation pattern (it needs the elevation angle of each
+    aircraft). Set it in <b>Campaigns &amp; settings</b>: samples already collected will be used.</div>
 
-  <!-- ===================================================== TEMPS RÉEL -->
+  <!-- ===================================================== LIVE -->
   <section class="tab on" id="t-live">
     <div class="grid g4" style="margin-bottom:14px">
-      <div class="card kpi"><div class="k">Avions positionnés</div><div class="v" id="k-ac">–</div><div class="s" id="k-ac2"></div></div>
-      <div class="card kpi"><div class="k">Messages / min</div><div class="v" id="k-msg">–</div><div class="s">dernière minute (readsb)</div></div>
-      <div class="card kpi"><div class="k">Signal / bruit</div><div class="v" id="k-sig">–</div><div class="s" id="k-sig2"></div></div>
-      <div class="card kpi"><div class="k">Plus loin à l'instant</div><div class="v" id="k-far">–</div><div class="s" id="k-far2"></div></div>
+      <div class="card kpi"><div class="k">Aircraft with position</div><div class="v" id="k-ac">–</div><div class="s" id="k-ac2"></div></div>
+      <div class="card kpi"><div class="k">Messages / min</div><div class="v" id="k-msg">–</div><div class="s">last minute (readsb)</div></div>
+      <div class="card kpi"><div class="k">Signal / noise</div><div class="v" id="k-sig">–</div><div class="s" id="k-sig2"></div></div>
+      <div class="card kpi"><div class="k">Farthest right now</div><div class="v" id="k-far">–</div><div class="s" id="k-far2"></div></div>
     </div>
     <div class="grid g2">
-      <div class="card"><h2>Avions reçus <span>azimut / distance, couleur = RSSI</span></h2><div class="plot" id="p-live"></div></div>
-      <div class="card"><h2>RSSI en fonction de la distance <span>pente théorique : −20 dB par décade</span></h2><div class="plot" id="p-rssi"></div></div>
+      <div class="card"><h2>Received aircraft <span>azimuth / distance, colour = RSSI</span></h2><div class="plot" id="p-live"></div></div>
+      <div class="card"><h2>RSSI versus distance <span>theoretical slope: −20 dB per decade</span></h2><div class="plot" id="p-rssi"></div></div>
     </div>
   </section>
 
-  <!-- ===================================================== PORTÉE -->
+  <!-- ===================================================== RANGE -->
   <section class="tab" id="t-range">
     <div class="ctrl">
-      <label>Altitude des avions</label>
-      <select id="band"><option value="all">Toutes</option><option value="low">&lt; 10 000 ft</option><option value="mid">10 000 – 25 000 ft</option><option value="high">&gt; 25 000 ft</option></select>
+      <label>Aircraft altitude</label>
+      <select id="band"><option value="all">All</option><option value="low">&lt; 10,000 ft</option><option value="mid">10,000 – 25,000 ft</option><option value="high">&gt; 25,000 ft</option></select>
       <span class="note" id="range-info"></span>
     </div>
     <div class="grid g2">
-      <div class="card"><h2>Portée par azimut <span>maximum, 95e centile et médiane</span></h2><div class="plot tall" id="p-range"></div></div>
-      <div class="card"><h2>Lecture</h2>
+      <div class="card"><h2>Range by azimuth <span>maximum, 95th percentile and median</span></h2><div class="plot tall" id="p-range"></div></div>
+      <div class="card"><h2>Reading</h2>
         <div class="note" id="range-read"></div>
-        <h2 style="margin-top:16px">Secteurs</h2>
+        <h2 style="margin-top:16px">Sectors</h2>
         <table id="range-table"></table>
       </div>
     </div>
   </section>
 
-  <!-- ===================================================== DIAGRAMME -->
+  <!-- ===================================================== PATTERN -->
   <section class="tab" id="t-pattern">
     <div class="ctrl">
-      <label>Correction par avion</label><select id="corr"><option value="1">Oui</option><option value="0">Non</option></select>
-      <label>Plan horizontal : élévation</label>
-      <select id="elband"><option value="0,3">0 à 3°</option><option value="0,10" selected>0 à 10°</option><option value="3,10">3 à 10°</option><option value="10,30">10 à 30°</option><option value="-2,90">toutes</option></select>
-      <label>Plan vertical : secteur</label>
-      <select id="sector"><option value="">tous azimuts</option></select>
+      <label>Per-aircraft correction</label><select id="corr"><option value="1">Yes</option><option value="0">No</option></select>
+      <label>Horizontal plane: elevation</label>
+      <select id="elband"><option value="0,3">0 to 3°</option><option value="0,10" selected>0 to 10°</option><option value="3,10">3 to 10°</option><option value="10,30">10 to 30°</option><option value="-2,90">all</option></select>
+      <label>Vertical plane: sector</label>
+      <select id="sector"><option value="">all azimuths</option></select>
       <span class="note" id="pat-info"></span>
     </div>
     <div class="grid g2" style="margin-bottom:14px">
-      <div class="card"><h2>Plan horizontal <span id="h-sub">gain relatif (dB)</span></h2><div class="plot" id="p-h"></div></div>
-      <div class="card"><h2>Plan vertical <span id="v-sub">gain relatif (dB) selon l'élévation</span></h2><div class="plot" id="p-v"></div></div>
+      <div class="card"><h2>Horizontal plane <span id="h-sub">relative gain (dB)</span></h2><div class="plot" id="p-h"></div></div>
+      <div class="card"><h2>Vertical plane <span id="v-sub">relative gain (dB) versus elevation</span></h2><div class="plot" id="p-v"></div></div>
     </div>
     <div class="grid g2">
-      <div class="card"><h2>Diagramme 3D mesuré <span>rayon et couleur = gain relatif</span></h2><div class="plot tall" id="p-3d"></div></div>
-      <div class="card"><h2>Méthode et limites</h2>
+      <div class="card"><h2>Measured 3D pattern <span>radius and colour = relative gain</span></h2><div class="plot tall" id="p-3d"></div></div>
+      <div class="card"><h2>Method and limits</h2>
         <div class="note">
-          <p>Pour chaque avion, readsb mesure la puissance reçue (<b>RSSI</b>, dBFS). On la corrige de l'affaiblissement en espace libre
-            (<b>FSPL</b>, 20 log d + 20 log f + 32,44) : il reste le gain de l'antenne dans la direction de l'avion, plus la puissance
-            propre de son transpondeur.</p>
-          <p style="margin-top:8px"><b>Correction par avion</b> : la part propre à chaque transpondeur (125 à 500 W, câblage, antenne)
-            est estimée par moindres carrés alternés sur toutes ses positions, puis retirée. Le niveau moyen est conservé, ce qui
-            permet de comparer deux campagnes en absolu.</p>
-          <p style="margin-top:8px"><b>Limites</b> : aux grandes distances, seuls les signaux assez forts sont décodés, ce qui surestime
-            un peu le gain aux très basses élévations ; le RSSI sature au-dessus de −3 dBFS (points écartés) ; l'élévation dépend de
-            l'altitude de l'antenne saisie. Chaque case affichée réunit au moins 5 mesures (médiane).</p>
+          <p>For every aircraft, readsb measures the received power (<b>RSSI</b>, dBFS). Correcting it for free-space path loss
+            (<b>FSPL</b>, 20 log d + 20 log f + 32.44) leaves the antenna gain in the direction of the aircraft, plus the transponder's
+            own power.</p>
+          <p style="margin-top:8px"><b>Per-aircraft correction</b>: each transponder's own contribution (125 to 500 W, cabling, antenna)
+            is estimated by alternating least squares over all its positions, then removed. The mean level is kept, so two campaigns
+            can be compared in absolute terms.</p>
+          <p style="margin-top:8px"><b>Limits</b>: at long range only strong enough signals are decoded, which slightly overestimates
+            the gain at very low elevations; RSSI saturates above −3 dBFS (those samples are dropped); elevation depends on the antenna
+            altitude you entered. Each displayed cell holds at least 5 samples (median).</p>
           <p style="margin-top:8px" id="pat-counts"></p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ===================================================== RELIEF & 3D -->
+  <!-- ===================================================== TERRAIN & 3D -->
   <section class="tab" id="t-relief">
     <div class="ctrl">
-      <label>Exagération verticale</label>
+      <label>Vertical exaggeration</label>
       <select id="exag"><option value="5">× 5</option><option value="10" selected>× 10</option><option value="20">× 20</option><option value="40">× 40</option></select>
-      <button class="btn" id="terrain-go" style="display:none">Charger le relief</button>
+      <button class="btn" id="terrain-go" style="display:none">Load terrain</button>
       <span class="note" id="terrain-info"></span>
     </div>
-    <div class="card" style="margin-bottom:14px"><h2>Couverture mesurée et relief <span>enveloppe : portée (90e centile) par azimut et par tranche de 2 000 ft</span></h2>
+    <div class="card" style="margin-bottom:14px"><h2>Measured coverage and terrain <span>envelope: range (90th percentile) by azimuth and 2,000 ft altitude band</span></h2>
       <div class="plot" id="p-cov3d" style="height:640px"></div></div>
     <div class="grid g2" style="margin-bottom:14px">
-      <div class="card"><h2>Masque d'horizon <span>élévation la plus basse reçue, comparée au relief</span></h2><div class="plot" id="p-mask"></div>
-        <p class="note">Cliquez sur une direction pour afficher son profil.</p></div>
-      <div class="card"><h2>Diagnostic par secteur</h2><table id="mask-table"></table>
-        <p class="note" style="margin-top:10px">Le masque mesuré est l'élévation sous laquelle on ne capte plus d'avions (2e centile).
-          S'il dépasse nettement celui du relief, l'obstacle est local : bâtiment, toit, mur, mât. Sans trafic à basse altitude dans
-          une direction, le masque mesuré est surestimé.</p></div>
+      <div class="card"><h2>Horizon mask <span>lowest received elevation versus terrain</span></h2><div class="plot" id="p-mask"></div>
+        <p class="note">Click a direction to show its profile.</p></div>
+      <div class="card"><h2>Sector diagnosis</h2><table id="mask-table"></table>
+        <p class="note" style="margin-top:10px">The measured mask is the elevation below which no aircraft are received (2nd percentile).
+          If it is clearly above the terrain mask, the obstruction is local: building, roof, wall, mast. Without low traffic in a
+          direction, the measured mask is overestimated.</p></div>
     </div>
-    <div class="card"><h2>Profil RF <span id="prof-sub"></span></h2>
-      <div class="ctrl"><label>Azimut</label><input type="range" id="prof-az" min="0" max="359" value="200" style="flex:1"><b id="prof-az-v" style="font-family:var(--mono);min-width:48px">200°</b></div>
+    <div class="card"><h2>RF profile <span id="prof-sub"></span></h2>
+      <div class="ctrl"><label>Azimuth</label><input type="range" id="prof-az" min="0" max="359" value="200" style="flex:1"><b id="prof-az-v" style="font-family:var(--mono);min-width:48px">200°</b></div>
       <div class="plot" id="p-prof" style="height:420px"></div>
-      <p class="note">Hauteurs « apparentes » : la courbure terrestre (rayon radio, k = 4/3) est retirée, si bien que les ondes se propagent en
-        ligne droite. Le rayon rasant part de l'antenne et frôle l'obstacle le plus haut ; la bande orange est la première zone de Fresnel
-        (17,3 √(d₁d₂ / (f·d)) m à 1 090 MHz) : un obstacle qui l'entame atténue déjà le signal.</p>
+      <p class="note">"Apparent" heights: Earth curvature (radio radius, k = 4/3) is removed, so radio waves travel in straight lines.
+        The grazing ray leaves the antenna and touches the highest obstacle; the orange band is the first Fresnel zone
+        (17.3 √(d₁d₂ / (f·d)) m at 1090 MHz): an obstacle that cuts into it already attenuates the signal.</p>
     </div>
   </section>
 
-  <!-- ===================================================== COMPARAISON -->
+  <!-- ===================================================== COMPARE -->
   <section class="tab" id="t-compare">
     <div class="ctrl">
-      <label>A (référence)</label><select id="cmp-a"></select>
-      <label>B (modifiée)</label><select id="cmp-b"></select>
-      <button class="btn primary" id="cmp-go">Comparer</button>
-      <span class="note">Comparez des périodes de durée et d'horaires proches : le trafic change d'un jour à l'autre.</span>
+      <label>A (reference)</label><select id="cmp-a"></select>
+      <label>B (modified)</label><select id="cmp-b"></select>
+      <button class="btn primary" id="cmp-go">Compare</button>
+      <span class="note">Compare periods of similar length and time of day: traffic changes from one day to the next.</span>
     </div>
     <div class="grid g4" style="margin-bottom:14px" id="cmp-kpi"></div>
     <div class="grid g2" style="margin-bottom:14px">
-      <div class="card"><h2>Portée (95e centile) <span>A et B</span></h2><div class="plot" id="p-cmp-range"></div></div>
-      <div class="card"><h2>Gain, plan horizontal <span>niveau absolu, élévation 0 à 10°</span></h2><div class="plot" id="p-cmp-h"></div></div>
+      <div class="card"><h2>Range (95th percentile) <span>A and B</span></h2><div class="plot" id="p-cmp-range"></div></div>
+      <div class="card"><h2>Gain, horizontal plane <span>absolute level, elevation 0 to 10°</span></h2><div class="plot" id="p-cmp-h"></div></div>
     </div>
-    <div class="card"><h2>Écart B − A par azimut <span>gain (dB) et portée (km)</span></h2><div class="plot" id="p-cmp-delta"></div></div>
+    <div class="card"><h2>Difference B − A by azimuth <span>gain (dB) and range (km)</span></h2><div class="plot" id="p-cmp-delta"></div></div>
   </section>
 
-  <!-- ===================================================== CAMPAGNES -->
+  <!-- ===================================================== CAMPAIGNS -->
   <section class="tab" id="t-camp">
     <div class="grid g2">
       <div class="card">
-        <h2>Campagnes de mesure</h2>
-        <p class="note" style="margin-bottom:10px">Une campagne marque une configuration d'antenne (« dipôle seul », « avec déflecteur »…).
-          Démarrez-la quand l'antenne est en place, arrêtez-la avant de modifier l'installation. Ses échantillons sont conservés
-          sans limite de durée.</p>
-        <div class="ctrl"><input id="c-name" placeholder="Nom (ex. avec déflecteur)" style="flex:1;min-width:180px">
-          <input id="c-notes" placeholder="Notes (hauteur, câble…)" style="flex:1;min-width:180px">
-          <button class="btn primary" id="c-start">Démarrer</button></div>
+        <h2>Measurement campaigns</h2>
+        <p class="note" style="margin-bottom:10px">A campaign marks one antenna setup ("bare dipole", "with reflector"…).
+          Start it once the antenna is in place, stop it before changing the installation. Its samples are kept with no time limit.</p>
+        <div class="ctrl"><input id="c-name" placeholder="Name (e.g. with reflector)" style="flex:1;min-width:180px">
+          <input id="c-notes" placeholder="Notes (height, cable…)" style="flex:1;min-width:180px">
+          <button class="btn primary" id="c-start">Start</button></div>
         <table id="c-table"></table>
       </div>
       <div class="card">
-        <h2>Réglages</h2>
-        <div class="ctrl"><label for="alt">Altitude de l'antenne (m, au-dessus de la mer)</label>
-          <input id="alt" type="number" step="1" style="width:110px"><button class="btn" id="alt-save">Enregistrer</button></div>
-        <p class="note">Altitude du sol plus hauteur du mât. Elle sert à calculer l'angle d'élévation de chaque avion et l'horizon radio.
-          L'élévation est recalculée à l'analyse : une correction s'applique aussi aux mesures déjà collectées.</p>
-        <h2 style="margin-top:16px">État</h2>
+        <h2>Settings</h2>
+        <div class="ctrl"><label for="alt">Antenna altitude (m above sea level)</label>
+          <input id="alt" type="number" step="1" style="width:110px"><button class="btn" id="alt-save">Save</button></div>
+        <p class="note">Ground altitude plus mast height. It is used to compute each aircraft's elevation angle and the radio horizon.
+          Elevation is recomputed at analysis time, so a correction also applies to samples already collected.</p>
+        <h2 style="margin-top:16px">Status</h2>
         <div class="note" id="status"></div>
-        <h2 style="margin-top:16px">Probabilité de détection <span>référence externe</span></h2>
+        <h2 style="margin-top:16px">Detection probability <span>external reference</span></h2>
         <div class="note" id="det-info"></div>
         <div class="plot" id="p-det" style="height:300px;display:none"></div>
       </div>
@@ -211,7 +210,7 @@ td.n { font-family:var(--mono); text-align:right; }
 'use strict';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const fmt = (v, d = 0) => v == null ? '–' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: d, minimumFractionDigits: d });
+const fmt = (v, d = 0) => v == null ? '–' : Number(v).toLocaleString('en-GB', { maximumFractionDigits: d, minimumFractionDigits: d });
 const C = { text: '#e6edf3', muted: '#7d8b99', line: '#222c38', accent: '#3fb6ff', ok: '#3ddc84', warn: '#ffb020', violet: '#9b7cff', danger: '#ff4d5e' };
 const BASE = { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { family: 'Inter, sans-serif', color: C.text, size: 12 },
                margin: { l: 40, r: 40, t: 20, b: 40 }, showlegend: true, legend: { orientation: 'h', y: -0.08, font: { color: C.muted } } };
@@ -225,7 +224,7 @@ async function post(u, b) { const r = await fetch(u, { method: 'POST', headers: 
 const state = { tab: 'live', campaigns: [], status: null };
 const periodQ = () => { const v = $('period').value; return v.startsWith('c') ? `campaign=${v.slice(1)}` : `campaign=${v}`; };
 
-// ---------------------------------------------------------------- onglets et périodes
+// ---------------------------------------------------------------- tabs and periods
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
   state.tab = b.dataset.t;
   document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b));
@@ -233,8 +232,8 @@ document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
   refresh();
 });
 function periodOptions(sel, withLast = true) {
-  const opts = (withLast ? [['h1', 'Dernière heure'], ['h6', '6 dernières heures'], ['h24', '24 dernières heures'], ['h168', '7 derniers jours']] : [])
-    .concat(state.campaigns.map(c => ['c' + c.id, `Campagne : ${c.name}${c.t1 ? '' : ' (en cours)'}`]));
+  const opts = (withLast ? [['h1', 'Last hour'], ['h6', 'Last 6 hours'], ['h24', 'Last 24 hours'], ['h168', 'Last 7 days']] : [])
+    .concat(state.campaigns.map(c => ['c' + c.id, `Campaign: ${c.name}${c.t1 ? '' : ' (running)'}`]));
   const cur = sel.value;
   sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
   if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
@@ -249,15 +248,15 @@ async function loadMeta() {
 }
 $('period').onchange = refresh;
 
-// ---------------------------------------------------------------- temps réel
+// ---------------------------------------------------------------- live
 async function live() {
   const d = await get('/api/live');
   const ac = d.aircraft;
   $('k-ac').textContent = ac.length;
-  $('k-ac2').textContent = `${ac.filter(a => a.rssi != null).length} avec RSSI`;
+  $('k-ac2').textContent = `${ac.filter(a => a.rssi != null).length} with RSSI`;
   $('k-msg').textContent = fmt(d.stats.messages_1min);
   $('k-sig').textContent = d.stats.signal != null ? `${fmt(d.stats.signal, 1)} / ${fmt(d.stats.noise, 1)}` : '–';
-  $('k-sig2').textContent = d.stats.strong_signals != null ? `dBFS · ${d.stats.strong_signals} signaux forts (> −3 dBFS)` : 'dBFS';
+  $('k-sig2').textContent = d.stats.strong_signals != null ? `dBFS · ${d.stats.strong_signals} strong signals (> −3 dBFS)` : 'dBFS';
   const far = ac.reduce((m, a) => (!m || a.dist_km > m.dist_km) ? a : m, null);
   $('k-far').textContent = far ? `${fmt(far.dist_km)} km` : '–';
   $('k-far2').textContent = far ? `${far.flight || far.hex.toUpperCase()} · ${fmt(far.az)}° · FL${fmt((far.alt_ft || 0) / 100)}` : '';
@@ -271,69 +270,69 @@ async function live() {
   const xs = [2, 5, 10, 20, 50, 100, 200, 400];
   const ref = w.length ? Math.max(...w.map(a => a.rssi + 20 * Math.log10(a.dist_km))) : null;
   plot('p-rssi', [
-    { type: 'scatter', mode: 'markers', x: w.map(a => a.dist_km), y: w.map(a => a.rssi), text: w.map(a => `${a.flight || a.hex} · ${fmt(a.alt_ft)} ft`), name: 'Avions',
+    { type: 'scatter', mode: 'markers', x: w.map(a => a.dist_km), y: w.map(a => a.rssi), text: w.map(a => `${a.flight || a.hex} · ${fmt(a.alt_ft)} ft`), name: 'Aircraft',
       marker: { size: 7, color: w.map(a => (a.alt_ft || 0) / 100), colorscale: 'Viridis', cmin: 0, cmax: 400,
         colorbar: { title: { text: 'FL', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .7 } } },
-    ref == null ? {} : { type: 'scatter', mode: 'lines', x: xs, y: xs.map(x => ref - 20 * Math.log10(x)), name: 'Espace libre (enveloppe)', line: { color: C.warn, dash: 'dot' } }],
+    ref == null ? {} : { type: 'scatter', mode: 'lines', x: xs, y: xs.map(x => ref - 20 * Math.log10(x)), name: 'Free space (envelope)', line: { color: C.warn, dash: 'dot' } }],
     { xaxis: { type: 'log', title: 'distance (km)', gridcolor: C.line, color: C.muted }, yaxis: { title: 'RSSI (dBFS)', gridcolor: C.line, color: C.muted, range: [-45, 0] },
       legend: { orientation: 'h', y: 1.08, font: { color: C.muted } }, margin: { l: 50, r: 30, t: 30, b: 45 } });
 }
 
-// ---------------------------------------------------------------- portée
+// ---------------------------------------------------------------- range
 async function range() {
   const d = await get(`/api/range?${periodQ()}&band=${$('band').value}`);
   const th = d.az.concat(d.az[0]);
   const close = v => v.concat(v[0]);
   const traces = [
     { type: 'scatterpolar', r: close(d.max), theta: th, name: 'Maximum', mode: 'lines', line: { color: C.violet, width: 1.5 }, connectgaps: true },
-    { type: 'scatterpolar', r: close(d.p95), theta: th, name: '95e centile', mode: 'lines', fill: 'toself', fillcolor: 'rgba(63,182,255,.18)', line: { color: C.accent, width: 2 }, connectgaps: true },
-    { type: 'scatterpolar', r: close(d.p50), theta: th, name: 'Médiane', mode: 'lines', line: { color: C.ok, width: 1.5, dash: 'dot' }, connectgaps: true },
+    { type: 'scatterpolar', r: close(d.p95), theta: th, name: '95th percentile', mode: 'lines', fill: 'toself', fillcolor: 'rgba(63,182,255,.18)', line: { color: C.accent, width: 2 }, connectgaps: true },
+    { type: 'scatterpolar', r: close(d.p50), theta: th, name: 'Median', mode: 'lines', line: { color: C.ok, width: 1.5, dash: 'dot' }, connectgaps: true },
   ];
   if (d.horizon_km) traces.push({ type: 'scatterpolar', r: Array(73).fill(d.horizon_km), theta: [...Array(73).keys()].map(i => i * 5), mode: 'lines',
-    name: `Horizon radio (FL${d.horizon_alt_ft / 100})`, line: { color: C.warn, dash: 'dash', width: 1 } });
+    name: `Radio horizon (FL${d.horizon_alt_ft / 100})`, line: { color: C.warn, dash: 'dash', width: 1 } });
   plot('p-range', traces, { polar: { bgcolor: 'rgba(0,0,0,0)', radialaxis: RADIAL_KM, angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } } });
-  $('range-info').textContent = `${d.label} · ${fmt(d.total)} positions · ${fmt(d.aircraft)} avions`;
-  const sect = [['N', 337.5, 22.5], ['NE', 22.5, 67.5], ['E', 67.5, 112.5], ['SE', 112.5, 157.5], ['S', 157.5, 202.5], ['SO', 202.5, 247.5], ['O', 247.5, 292.5], ['NO', 292.5, 337.5]];
+  $('range-info').textContent = `${d.label} · ${fmt(d.total)} positions · ${fmt(d.aircraft)} aircraft`;
+  const sect = [['N', 337.5, 22.5], ['NE', 22.5, 67.5], ['E', 67.5, 112.5], ['SE', 112.5, 157.5], ['S', 157.5, 202.5], ['SW', 202.5, 247.5], ['W', 247.5, 292.5], ['NW', 292.5, 337.5]];
   const rows = sect.map(([n, a, b]) => {
     const ids = d.az.map((z, i) => i).filter(i => a < b ? d.az[i] >= a && d.az[i] < b : d.az[i] >= a || d.az[i] < b);
     const vals = ids.map(i => d.p95[i]).filter(v => v != null), mx = ids.map(i => d.max[i]).filter(v => v != null);
     return { n, p95: vals.length ? Math.max(...vals) : null, max: mx.length ? Math.max(...mx) : null, cnt: ids.reduce((s, i) => s + d.n[i], 0) };
   });
-  $('range-table').innerHTML = '<tr><th>Secteur</th><th style="text-align:right">95e c.</th><th style="text-align:right">Max</th><th style="text-align:right">Positions</th></tr>' +
+  $('range-table').innerHTML = '<tr><th>Sector</th><th style="text-align:right">95th pct.</th><th style="text-align:right">Max</th><th style="text-align:right">Positions</th></tr>' +
     rows.map(r => `<tr><td>${r.n}</td><td class="n">${fmt(r.p95)} km</td><td class="n">${fmt(r.max)} km</td><td class="n">${fmt(r.cnt)}</td></tr>`).join('');
   const ok = rows.filter(r => r.p95 != null).sort((a, b) => b.p95 - a.p95);
-  $('range-read').innerHTML = ok.length ? `Meilleur secteur : <b>${ok[0].n}</b> (${fmt(ok[0].p95)} km au 95e centile) ; le plus faible :
-    <b>${ok[ok.length - 1].n}</b> (${fmt(ok[ok.length - 1].p95)} km).` + (d.horizon_km ? ` L'horizon radio théorique pour un avion au FL${d.horizon_alt_ft / 100}
-    est de ${fmt(d.horizon_km)} km : un secteur nettement en deçà signale un masque (relief, bâtiment, mât) ou une antenne peu efficace dans cette direction.` : '')
-    + ' Le 95e centile est plus fiable que le maximum, sensible à un seul avion exceptionnel.' : 'Pas encore assez de données.';
+  $('range-read').innerHTML = ok.length ? `Best sector: <b>${ok[0].n}</b> (${fmt(ok[0].p95)} km at the 95th percentile); weakest:
+    <b>${ok[ok.length - 1].n}</b> (${fmt(ok[ok.length - 1].p95)} km).` + (d.horizon_km ? ` The theoretical radio horizon for an aircraft at FL${d.horizon_alt_ft / 100}
+    is ${fmt(d.horizon_km)} km: a sector well below it points to an obstruction (terrain, building, mast) or an antenna that is weak in that direction.` : '')
+    + ' The 95th percentile is more reliable than the maximum, which depends on a single exceptional aircraft.' : 'Not enough data yet.';
 }
 
-// ---------------------------------------------------------------- diagramme
+// ---------------------------------------------------------------- pattern
 for (let a = 0; a < 360; a += 45) $('sector').insertAdjacentHTML('beforeend', `<option value="${a}">${a}° ± 30°</option>`);
 async function pattern() {
   const [lo, hi] = $('elband').value.split(',');
   const sec = $('sector').value;
   const d = await get(`/api/pattern?${periodQ()}&correct=${$('corr').value}&el_lo=${lo}&el_hi=${hi}` + (sec ? `&az=${sec}&half=30` : ''));
-  if (!d.samples) { $('pat-info').textContent = state.status?.antenna_alt_m == null ? 'Altitude de l\'antenne requise.' : 'Pas encore de mesures RSSI sur cette période.';
+  if (!d.samples) { $('pat-info').textContent = state.status?.antenna_alt_m == null ? 'Antenna altitude required.' : 'No RSSI samples for this period yet.';
     ['p-h', 'p-v', 'p-3d'].forEach(id => Plotly.purge(id)); return; }
   const pk = d.peak, rel = v => v == null ? null : Math.max(v - pk, -30);
-  $('pat-info').textContent = `${d.label} · ${fmt(d.samples)} mesures · ${fmt(d.aircraft)} avions`;
-  // plan horizontal
+  $('pat-info').textContent = `${d.label} · ${fmt(d.samples)} samples · ${fmt(d.aircraft)} aircraft`;
+  // horizontal plane
   const h = d.horizontal, hr = h.values.map(rel);
   plot('p-h', [{ type: 'scatterpolar', r: hr.concat(hr[0]).map(v => v == null ? null : v + 30), theta: h.az.concat(h.az[0]), mode: 'lines+markers', connectgaps: false,
-    fill: 'toself', fillcolor: 'rgba(63,182,255,.15)', line: { color: C.accent, width: 2 }, marker: { size: 3 }, name: `élévation ${h.el_lo}–${h.el_hi}°`,
+    fill: 'toself', fillcolor: 'rgba(63,182,255,.15)', line: { color: C.accent, width: 2 }, marker: { size: 3 }, name: `elevation ${h.el_lo}–${h.el_hi}°`,
     text: h.values.map((v, i) => `${h.az[i]}° : ${fmt(rel(v), 1)} dB (n = ${h.n[i]})`), hoverinfo: 'text' }],
     { polar: { bgcolor: 'rgba(0,0,0,0)', radialaxis: { ...POLAR_AXIS, range: [0, 32], tickvals: [0, 10, 20, 30], ticktext: ['−30', '−20', '−10', '0 dB'] },
                angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } } });
-  $('h-sub').textContent = `gain relatif (dB), élévation ${h.el_lo} à ${h.el_hi}°`;
-  // plan vertical
+  $('h-sub').textContent = `relative gain (dB), elevation ${h.el_lo} to ${h.el_hi}°`;
+  // vertical plane
   const v = d.vertical, vr = v.values.map(rel);
   plot('p-v', [{ type: 'scatterpolar', r: vr.map(x => x == null ? null : x + 30), theta: v.el, mode: 'lines+markers', connectgaps: false,
-    fill: 'toself', fillcolor: 'rgba(155,124,255,.15)', line: { color: C.violet, width: 2 }, marker: { size: 3 }, name: sec ? `azimut ${sec}° ± 30°` : 'tous azimuts',
+    fill: 'toself', fillcolor: 'rgba(155,124,255,.15)', line: { color: C.violet, width: 2 }, marker: { size: 3 }, name: sec ? `azimuth ${sec}° ± 30°` : 'all azimuths',
     text: v.values.map((x, i) => `${v.el[i] - .5}° : ${fmt(rel(x), 1)} dB (n = ${v.n[i]})`), hoverinfo: 'text' }],
     { polar: { bgcolor: 'rgba(0,0,0,0)', sector: [-5, 95], radialaxis: { ...POLAR_AXIS, range: [0, 32], tickvals: [0, 10, 20, 30], ticktext: ['−30', '−20', '−10', '0 dB'] },
                angularaxis: { ...POLAR_AXIS, direction: 'counterclockwise', rotation: 0, ticksuffix: '°' } } });
-  $('v-sub').textContent = `gain relatif (dB) selon l'élévation, ${sec ? 'azimut ' + sec + '° ± 30°' : 'tous azimuts'}`;
+  $('v-sub').textContent = `relative gain (dB) versus elevation, ${sec ? 'azimuth ' + sec + '° ± 30°' : 'all azimuths'}`;
   // 3D
   const g = d.grid, E = g.el_edges, X = [], Y = [], Z = [], S = [];
   g.values.forEach((row, e) => {
@@ -349,41 +348,47 @@ async function pattern() {
   plot('p-3d', [{ type: 'surface', x: X, y: Y, z: Z, surfacecolor: S, colorscale: 'Jet', cmin: -30, cmax: 0, showscale: true,
     colorbar: { title: { text: 'dB', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .7 }, connectgaps: false, hovertemplate: '%{surfacecolor:.1f} dB<extra></extra>' }],
     { showlegend: false, margin: { l: 0, r: 0, t: 0, b: 0 }, scene: { bgcolor: 'rgba(0,0,0,0)',
-      xaxis: { title: 'Est', color: C.muted, gridcolor: C.line, zeroline: false, range: [-1.05, 1.05] },
-      yaxis: { title: 'Nord', color: C.muted, gridcolor: C.line, zeroline: false, range: [-1.05, 1.05] },
-      zaxis: { title: 'Haut', color: C.muted, gridcolor: C.line, zeroline: false, range: [-0.1, 1.05] },
+      xaxis: { title: 'East', color: C.muted, gridcolor: C.line, zeroline: false, range: [-1.05, 1.05] },
+      yaxis: { title: 'North', color: C.muted, gridcolor: C.line, zeroline: false, range: [-1.05, 1.05] },
+      zaxis: { title: 'Up', color: C.muted, gridcolor: C.line, zeroline: false, range: [-0.1, 1.05] },
       aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: .55 }, camera: { eye: { x: 1.5, y: -1.5, z: 1.1 } } } });
   const filled = g.n.flat().filter(n => n >= 5).length;
-  $('pat-counts').innerHTML = `Grille 3D : <b>${filled}</b> cases renseignées sur ${g.n.flat().length} (azimut 10° × ${E.length - 1} bandes d'élévation). Les trous sont des directions sans assez de mesures : elles se remplissent avec le temps.`;
+  $('pat-counts').innerHTML = `3D grid: <b>${filled}</b> cells filled out of ${g.n.flat().length} (10° azimuth × ${E.length - 1} elevation bands). Holes are directions without enough samples yet: they fill up over time.`;
 }
 ['corr', 'elband', 'sector'].forEach(id => $(id).onchange = pattern);
 $('band').onchange = range;
 
-// ---------------------------------------------------------------- relief & 3D
+// ---------------------------------------------------------------- terrain & 3D
 const relief_state = { terrain: null, cov: null };
 async function relief() {
   const [t, c] = await Promise.all([get('/api/terrain'), get(`/api/coverage3d?${periodQ()}`)]);
   relief_state.terrain = t; relief_state.cov = c;
   const st = t.state;
-  $('terrain-go').style.display = st.status === 'prêt' ? 'none' : 'inline-flex';
-  $('terrain-info').innerHTML = st.status === 'prêt' ? 'Relief : tuiles AWS Terrain Tiles (≈ 400 m), 300 km autour de la station.'
-    : st.status === 'téléchargement' ? `Téléchargement du relief : ${st.tiles} / ${st.needed} tuiles…`
-    : st.status === 'erreur' ? 'Erreur : ' + esc(st.error)
-    : 'Relief non chargé. Le chargement télécharge une fois ≈ 40 tuiles d\'altitude (AWS, données ouvertes) : le service voit la zone couverte.';
+  $('terrain-go').style.display = st.status === 'ready' ? 'none' : 'inline-flex';
+  $('terrain-info').innerHTML = st.status === 'ready' ? 'Terrain: AWS Terrain Tiles (≈ 400 m), 300 km around the station.'
+    : st.status === 'downloading' ? `Downloading terrain: ${st.tiles} / ${st.needed} tiles…`
+    : st.status === 'error' ? 'Error: ' + esc(st.error)
+    : 'Terrain not loaded. Loading downloads ≈ 50 elevation tiles once (AWS open data): the service sees the area covered.';
   draw3d(); drawMask(); await drawProfile();
-  if (st.status === 'téléchargement') setTimeout(() => state.tab === 'relief' && relief(), 3000);
+  if (st.status === 'downloading') setTimeout(() => state.tab === 'relief' && relief(), 3000);
 }
 $('terrain-go').onclick = async () => { await post('/api/terrain', { action: 'fetch' }); relief(); };
 $('exag').onchange = () => { draw3d(); };
 
+// couleur Viridis d'une valeur 0..1 (une ligne 3D de couleur unique n'utilise pas l'échelle de couleurs de Plotly)
+function viridis(t) {
+  const st = [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]];
+  const x = Math.min(Math.max(t, 0), 1) * (st.length - 1), i = Math.min(Math.floor(x), st.length - 2), f = x - i;
+  return `rgb(${st[i].map((c, k) => Math.round(c + (st[i + 1][k] - c) * f)).join(',')})`;
+}
 function draw3d() {
   const t = relief_state.terrain, c = relief_state.cov, ex = +$('exag').value, h0 = (c.antenna_alt_m || 0);
   const traces = [];
   if (t.grid) {
     traces.push({ type: 'surface', x: t.grid.x, y: t.grid.y, z: t.grid.z.map(row => row.map(v => v == null ? null : v / 1000 * ex)),
-      surfacecolor: t.grid.z, cmin: 0, cmax: 3500, showscale: false, hovertemplate: '%{surfacecolor} m<extra>relief</extra>',
+      surfacecolor: t.grid.z, cmin: 0, cmax: 3500, showscale: false, hovertemplate: '%{surfacecolor} m<extra>terrain</extra>',
       colorscale: [[0, '#16301f'], [0.08, '#2f5a32'], [0.2, '#6f7f3e'], [0.35, '#8c7446'], [0.6, '#a89a8a'], [0.8, '#dcd6cf'], [1, '#ffffff']],
-      lighting: { ambient: .55, diffuse: .8, roughness: .9, specular: .05 }, lightposition: { x: -1e5, y: 1e5, z: 2e5 }, name: 'Relief' });
+      lighting: { ambient: .55, diffuse: .8, roughness: .9, specular: .05 }, lightposition: { x: -1e5, y: 1e5, z: 2e5 }, name: 'Terrain' });
   }
   const v = c.volume, A = v.az.concat(v.az[0]);
   const X = [], Y = [], Z = [], S = [];
@@ -394,17 +399,17 @@ function draw3d() {
     Y.push(rr.map((d, i) => d == null ? null : d * Math.cos(A[i] * Math.PI / 180)));
     Z.push(rr.map(d => d == null ? null : alt / 1000 * ex)); S.push(rr.map(() => v.alt_ft[b]));
     traces.push({ type: 'scatter3d', mode: 'lines', x: X[X.length - 1], y: Y[Y.length - 1], z: Z[Z.length - 1], connectgaps: false,
-      line: { color: v.alt_ft[b], colorscale: 'Viridis', cmin: 0, cmax: 40000, width: 3 }, showlegend: false, hoverinfo: 'skip' });
+      line: { color: viridis(v.alt_ft[b] / 40000), width: 3 }, showlegend: false, hoverinfo: 'skip' });
   });
   if (X.length > 1) traces.push({ type: 'surface', x: X, y: Y, z: Z, surfacecolor: S, cmin: 0, cmax: 40000, colorscale: 'Viridis', opacity: .38,
     showscale: true, colorbar: { title: { text: 'ft', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .6 },
-    hovertemplate: 'FL%{surfacecolor:.0f}<extra>couverture</extra>'.replace('FL%{surfacecolor:.0f}', '%{surfacecolor:.0f} ft'), name: 'Couverture' });
-  traces.push({ type: 'scatter3d', mode: 'markers+text', x: [0], y: [0], z: [h0 / 1000 * ex + 2], text: ['antenne'], textfont: { color: C.warn },
+    hovertemplate: '%{surfacecolor:.0f} ft<extra>coverage</extra>', name: 'Coverage' });
+  traces.push({ type: 'scatter3d', mode: 'markers+text', x: [0], y: [0], z: [h0 / 1000 * ex + 2], text: ['antenna'], textfont: { color: C.warn },
     marker: { size: 5, color: C.warn, symbol: 'diamond' }, showlegend: false, hoverinfo: 'text' });
   plot('p-cov3d', traces, { showlegend: false, margin: { l: 0, r: 0, t: 0, b: 0 }, scene: {
     aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: .35 }, bgcolor: 'rgba(0,0,0,0)',
-    xaxis: { title: 'km est', color: C.muted, gridcolor: C.line, zeroline: false, range: [-330, 330] },
-    yaxis: { title: 'km nord', color: C.muted, gridcolor: C.line, zeroline: false, range: [-330, 330] },
+    xaxis: { title: 'km east', color: C.muted, gridcolor: C.line, zeroline: false, range: [-330, 330] },
+    yaxis: { title: 'km north', color: C.muted, gridcolor: C.line, zeroline: false, range: [-330, 330] },
     zaxis: { title: `altitude (km × ${ex})`, color: C.muted, gridcolor: C.line, zeroline: false },
     camera: { eye: { x: -0.9, y: -1.5, z: .75 } } } });
 }
@@ -416,18 +421,18 @@ function maskAt(az) {
 function drawMask() {
   const mm = relief_state.cov.mask, t = relief_state.terrain, traces = [];
   if (t.mask) traces.push({ type: 'scatterpolar', r: t.mask.angle.concat(t.mask.angle[0]), theta: t.mask.az.concat(t.mask.az[0]), mode: 'lines',
-    fill: 'toself', fillcolor: 'rgba(140,116,70,.35)', line: { color: '#b08a55', width: 1.5 }, name: 'Relief (prédit)',
-    text: t.mask.az.map((a, i) => `${a}° : ${t.mask.angle[i]}° — crête à ${t.mask.ridge_km[i]} km, ${t.mask.ridge_alt_m[i]} m`), hoverinfo: 'text' });
+    fill: 'toself', fillcolor: 'rgba(140,116,70,.35)', line: { color: '#b08a55', width: 1.5 }, name: 'Terrain (predicted)',
+    text: t.mask.az.map((a, i) => `${a}°: ${t.mask.angle[i]}° — ridge at ${t.mask.ridge_km[i]} km, ${t.mask.ridge_alt_m[i]} m`), hoverinfo: 'text' });
   traces.push({ type: 'scatterpolar', r: mm.p2.concat(mm.p2[0]), theta: mm.az.concat(mm.az[0]), mode: 'lines+markers', connectgaps: false,
-    line: { color: C.accent, width: 2 }, marker: { size: 4 }, name: 'Mesuré (2e centile)',
-    text: mm.az.map((a, i) => `${a}° : ${mm.p2[i] ?? '–'}° (n = ${mm.n[i]})`), hoverinfo: 'text' });
+    line: { color: C.accent, width: 2 }, marker: { size: 4 }, name: 'Measured (2nd percentile)',
+    text: mm.az.map((a, i) => `${a}°: ${mm.p2[i] ?? '–'}° (n = ${mm.n[i]})`), hoverinfo: 'text' });
   plot('p-mask', traces, { polar: { bgcolor: 'rgba(0,0,0,0)', radialaxis: { ...POLAR_AXIS, range: [-1, 6], ticksuffix: '°', angle: 135, tickangle: 45 },
     angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } } });
   $('p-mask').removeAllListeners && $('p-mask').removeAllListeners('plotly_click');
   $('p-mask').on('plotly_click', ev => { const az = ev.points[0].theta; $('prof-az').value = Math.round(az) % 360; drawProfile(); });
-  // diagnostic par secteur
-  const sect = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SO', 225], ['O', 270], ['NO', 315]];
-  $('mask-table').innerHTML = '<tr><th>Secteur</th><th style="text-align:right">Relief</th><th style="text-align:right">Mesuré</th><th>Lecture</th></tr>' +
+  // sector diagnosis
+  const sect = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
+  $('mask-table').innerHTML = '<tr><th>Sector</th><th style="text-align:right">Terrain</th><th style="text-align:right">Measured</th><th>Reading</th></tr>' +
     sect.map(([n, c]) => {
       const bins = mm.az.map((a, i) => i).filter(i => Math.abs(((mm.az[i] - c + 540) % 360) - 180) <= 22.5);
       const meas = bins.map(i => mm.p2[i]).filter(x => x != null), nlow = bins.reduce((s, i) => s + mm.n[i], 0);
@@ -435,10 +440,10 @@ function drawMask() {
       const tMax = ter.length ? ter.reduce((a, b) => b.angle > a.angle ? b : a) : null;
       const mMed = meas.length ? meas.sort((a, b) => a - b)[Math.floor(meas.length / 2)] : null;
       let txt;
-      if (mMed == null) txt = '<span class="note">trafic insuffisant à basse élévation</span>';
-      else if (tMax && mMed - tMax.angle > 1) txt = `<b class="neg">obstacle local probable</b> : le relief (${fmt(tMax.angle, 1)}°) n'explique pas le masque`;
-      else if (tMax && tMax.angle >= 0.3) txt = `<b style="color:#d6b27a">relief</b> : crête à ${fmt(tMax.km)} km, ${fmt(tMax.alt)} m`;
-      else txt = `<span class="pos">dégagé</span>`;
+      if (mMed == null) txt = '<span class="note">not enough low-elevation traffic</span>';
+      else if (tMax && mMed - tMax.angle > 1) txt = `<b class="neg">likely local obstruction</b>: terrain (${fmt(tMax.angle, 1)}°) does not explain the mask`;
+      else if (tMax && tMax.angle >= 0.3) txt = `<b style="color:#d6b27a">terrain</b>: ridge at ${fmt(tMax.km)} km, ${fmt(tMax.alt)} m`;
+      else txt = `<span class="pos">clear</span>`;
       return `<tr><td><a href="#" data-az="${c}" style="color:var(--accent)">${n}</a></td><td class="n">${tMax ? fmt(tMax.angle, 1) + '°' : '–'}</td>
         <td class="n">${mMed != null ? fmt(mMed, 1) + '°' : '–'}</td><td>${txt}</td></tr>`;
     }).join('');
@@ -452,32 +457,32 @@ async function drawProfile() {
   if (d.terrain) {
     const te = d.terrain;
     traces.push({ type: 'scatter', x: te.dist, y: te.alt_m.map((h, i) => h == null ? null : h - te.drop_m[i]), mode: 'lines', fill: 'tozeroy',
-      fillcolor: 'rgba(140,116,70,.45)', line: { color: '#b08a55', width: 1 }, name: 'Relief (hauteur apparente)',
-      customdata: te.alt_m, hovertemplate: '%{x} km : relief %{customdata} m<extra></extra>' });
+      fillcolor: 'rgba(140,116,70,.45)', line: { color: '#b08a55', width: 1 }, name: 'Terrain (apparent height)',
+      customdata: te.alt_m, hovertemplate: '%{x} km: terrain %{customdata} m<extra></extra>' });
     const m = maskAt(az);
     if (m) {
       const D = 320, xs = [...Array(65).keys()].map(i => i * 5), tan = Math.tan(m.angle * Math.PI / 180);
       const los = xs.map(x => h0 + x * 1000 * tan), fr = xs.map(x => 17.32 * Math.sqrt(Math.max(x * (D - x), 0) / (1.09 * D)));
       traces.push({ type: 'scatter', x: xs.concat([...xs].reverse()), y: los.map((y, i) => y + fr[i]).concat(los.map((y, i) => y - fr[i]).reverse()),
-        fill: 'toself', fillcolor: 'rgba(255,176,32,.12)', line: { width: 0 }, name: '1re zone de Fresnel', hoverinfo: 'skip' });
+        fill: 'toself', fillcolor: 'rgba(255,176,32,.12)', line: { width: 0 }, name: '1st Fresnel zone', hoverinfo: 'skip' });
       traces.push({ type: 'scatter', x: xs, y: los, mode: 'lines', line: { color: C.warn, width: 1.5, dash: 'dash' },
-        name: `Rayon rasant (${fmt(m.angle, 2)}°, crête à ${fmt(m.km)} km, ${fmt(m.alt)} m)`, hoverinfo: 'skip' });
+        name: `Grazing ray (${fmt(m.angle, 2)}°, ridge at ${fmt(m.km)} km, ${fmt(m.alt)} m)`, hoverinfo: 'skip' });
     }
   }
   const ac = d.aircraft;
-  traces.push({ type: 'scattergl', mode: 'markers', x: ac.dist, y: ac.alt_m.map((h, i) => h - drop(ac.dist[i])), name: 'Avions reçus (±2,5°)',
+  traces.push({ type: 'scattergl', mode: 'markers', x: ac.dist, y: ac.alt_m.map((h, i) => h - drop(ac.dist[i])), name: 'Received aircraft (±2.5°)',
     marker: { size: 3, color: 'rgba(63,182,255,.45)' }, hovertemplate: '%{x} km<extra></extra>' });
   traces.push({ type: 'scatter', mode: 'lines', x: ac.envelope.dist, y: ac.envelope.alt_m.map((h, i) => h - drop(ac.envelope.dist[i])),
-    name: 'Plus bas reçu (2e centile)', line: { color: C.accent, width: 2.5 } });
-  traces.push({ type: 'scatter', mode: 'markers', x: [0], y: [h0], name: 'Antenne', marker: { color: C.warn, size: 9, symbol: 'diamond' } });
+    name: 'Lowest received (2nd percentile)', line: { color: C.accent, width: 2.5 } });
+  traces.push({ type: 'scatter', mode: 'markers', x: [0], y: [h0], name: 'Antenna', marker: { color: C.warn, size: 9, symbol: 'diamond' } });
   plot('p-prof', traces, { xaxis: { title: 'distance (km)', gridcolor: C.line, color: C.muted, range: [0, 320] },
-    yaxis: { title: 'hauteur apparente (m)', gridcolor: C.line, color: C.muted, range: [-2000, 9000] },
+    yaxis: { title: 'apparent height (m)', gridcolor: C.line, color: C.muted, range: [-2000, 9000] },
     legend: { orientation: 'h', y: 1.12, font: { color: C.muted } }, margin: { l: 60, r: 20, t: 40, b: 45 } });
-  $('prof-sub').textContent = `azimut ${az}° · ${fmt(ac.dist.length)} positions · ${d.label}`;
+  $('prof-sub').textContent = `azimuth ${az}° · ${fmt(ac.dist.length)} positions · ${d.label}`;
 }
 let profTimer; $('prof-az').oninput = () => { $('prof-az-v').textContent = $('prof-az').value + '°'; clearTimeout(profTimer); profTimer = setTimeout(drawProfile, 250); };
 
-// ---------------------------------------------------------------- comparaison
+// ---------------------------------------------------------------- compare
 async function compare() {
   const a = $('cmp-a').value, b = $('cmp-b').value;
   const q = v => v.startsWith('c') ? v.slice(1) : v;
@@ -485,15 +490,15 @@ async function compare() {
   const s = d.summary, sign = v => v == null ? '–' : (v > 0 ? '+' : '') + fmt(v, 1);
   const cls = v => v == null ? '' : v > 0 ? 'pos' : v < 0 ? 'neg' : '';
   $('cmp-kpi').innerHTML = [
-    ['Écart de gain médian', `<span class="${cls(s.delta_gain_median_db)}">${sign(s.delta_gain_median_db)} dB</span>`, 'B − A, plan horizontal'],
-    ['Écart de portée médian', `<span class="${cls(s.delta_range_p95_median_km)}">${sign(s.delta_range_p95_median_km)} km</span>`, 'B − A, 95e centile par azimut'],
-    ['Mesures A', fmt(s.samples_a), esc(d.a.label)], ['Mesures B', fmt(s.samples_b), esc(d.b.label)],
+    ['Median gain difference', `<span class="${cls(s.delta_gain_median_db)}">${sign(s.delta_gain_median_db)} dB</span>`, 'B − A, horizontal plane'],
+    ['Median range difference', `<span class="${cls(s.delta_range_p95_median_km)}">${sign(s.delta_range_p95_median_km)} km</span>`, 'B − A, 95th percentile by azimuth'],
+    ['Samples A', fmt(s.samples_a), esc(d.a.label)], ['Samples B', fmt(s.samples_b), esc(d.b.label)],
   ].map(([k, v, sub]) => `<div class="card kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`).join('');
   const ra = d.a.range, rb = d.b.range, th = ra.az.concat(ra.az[0]), cl = v => v.concat(v[0]);
   const polar = { bgcolor: 'rgba(0,0,0,0)', radialaxis: { ...POLAR_AXIS, angle: 135, tickangle: 45 }, angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } };
   plot('p-cmp-range', [
-    { type: 'scatterpolar', r: cl(ra.p95), theta: th, name: 'A : ' + d.a.label, mode: 'lines', line: { color: C.muted, width: 2 }, connectgaps: true },
-    { type: 'scatterpolar', r: cl(rb.p95), theta: th, name: 'B : ' + d.b.label, mode: 'lines', fill: 'toself', fillcolor: 'rgba(63,182,255,.15)', line: { color: C.accent, width: 2 }, connectgaps: true }],
+    { type: 'scatterpolar', r: cl(ra.p95), theta: th, name: 'A: ' + d.a.label, mode: 'lines', line: { color: C.muted, width: 2 }, connectgaps: true },
+    { type: 'scatterpolar', r: cl(rb.p95), theta: th, name: 'B: ' + d.b.label, mode: 'lines', fill: 'toself', fillcolor: 'rgba(63,182,255,.15)', line: { color: C.accent, width: 2 }, connectgaps: true }],
     { polar: { ...polar, radialaxis: RADIAL_KM } });
   const ha = d.a.pattern.horizontal, hb = d.b.pattern.horizontal;
   if (ha && hb) {
@@ -504,42 +509,42 @@ async function compare() {
       { type: 'scatterpolar', r: r(hb.values), theta: hb.az, name: 'B', mode: 'lines', line: { color: C.accent, width: 2 } }],
       { polar: { ...polar, radialaxis: { ...POLAR_AXIS, range: [0, 32], tickvals: [0, 10, 20, 30], ticktext: ['−30', '−20', '−10', '0 dB'] } } });
     plot('p-cmp-delta', [
-      { type: 'bar', x: hb.az, y: d.delta_gain, name: 'Écart de gain (dB)', marker: { color: d.delta_gain.map(v => v == null ? C.muted : v >= 0 ? C.ok : C.danger) } },
-      { type: 'scatter', mode: 'lines+markers', x: ra.az, y: d.delta_range_p95, name: 'Écart de portée (km)', yaxis: 'y2', line: { color: C.violet } }],
-      { xaxis: { title: 'azimut (°)', gridcolor: C.line, color: C.muted, dtick: 30 }, yaxis: { title: 'dB', gridcolor: C.line, color: C.muted, zerolinecolor: C.muted },
+      { type: 'bar', x: hb.az, y: d.delta_gain, name: 'Gain difference (dB)', marker: { color: d.delta_gain.map(v => v == null ? C.muted : v >= 0 ? C.ok : C.danger) } },
+      { type: 'scatter', mode: 'lines+markers', x: ra.az, y: d.delta_range_p95, name: 'Range difference (km)', yaxis: 'y2', line: { color: C.violet } }],
+      { xaxis: { title: 'azimuth (°)', gridcolor: C.line, color: C.muted, dtick: 30 }, yaxis: { title: 'dB', gridcolor: C.line, color: C.muted, zerolinecolor: C.muted },
         yaxis2: { title: 'km', overlaying: 'y', side: 'right', color: C.violet, showgrid: false }, margin: { l: 50, r: 50, t: 20, b: 50 } });
   } else { ['p-cmp-h', 'p-cmp-delta'].forEach(id => Plotly.purge(id)); }
 }
 $('cmp-go').onclick = () => compare().catch(e => alert(e.message));
 
-// ---------------------------------------------------------------- campagnes et réglages
+// ---------------------------------------------------------------- campaigns and settings
 async function camp() {
   await loadMeta();
-  const fmtT = t => t ? new Date(t * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
-  $('c-table').innerHTML = '<tr><th>Nom</th><th>Début</th><th>Fin</th><th style="text-align:right">Mesures</th><th></th></tr>' +
+  const fmtT = t => t ? new Date(t * 1000).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  $('c-table').innerHTML = '<tr><th>Name</th><th>Start</th><th>End</th><th style="text-align:right">Samples</th><th></th></tr>' +
     state.campaigns.map(c => `<tr><td><b>${esc(c.name)}</b>${c.notes ? '<br><span class="note">' + esc(c.notes) + '</span>' : ''}</td>
-      <td>${fmtT(c.t0)}</td><td>${c.t1 ? fmtT(c.t1) : '<span class="pill">en cours</span>'}</td><td class="n">${fmt(c.samples)}</td>
-      <td style="text-align:right">${c.t1 ? '' : `<button class="btn" data-stop="${c.id}">Arrêter</button> `}<button class="btn danger" data-del="${c.id}">Supprimer</button></td></tr>`).join('');
+      <td>${fmtT(c.t0)}</td><td>${c.t1 ? fmtT(c.t1) : '<span class="pill">running</span>'}</td><td class="n">${fmt(c.samples)}</td>
+      <td style="text-align:right">${c.t1 ? '' : `<button class="btn" data-stop="${c.id}">Stop</button> `}<button class="btn danger" data-del="${c.id}">Delete</button></td></tr>`).join('');
   document.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => { await post('/api/campaigns', { action: 'stop', id: +b.dataset.stop }); camp(); });
   document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (!confirm('Supprimer cette campagne ? Ses mesures retomberont dans la rétention normale.')) return;
+    if (!confirm('Delete this campaign? Its samples will fall back under the normal retention period.')) return;
     await post('/api/campaigns', { action: 'delete', id: +b.dataset.del }); camp(); });
   const s = state.status;
-  $('status').innerHTML = `<b>${fmt(s.samples)}</b> échantillons dont <b>${fmt(s.samples_with_gain)}</b> avec RSSI exploitable ;
-    depuis le ${s.first ? fmtT(s.first) : '–'} ; un échantillon par avion toutes les ${s.sample_interval_s} s ; conservation ${s.retention_days} jours hors campagne.`;
+  $('status').innerHTML = `<b>${fmt(s.samples)}</b> samples, <b>${fmt(s.samples_with_gain)}</b> with usable RSSI;
+    since ${s.first ? fmtT(s.first) : '–'}; one sample per aircraft every ${s.sample_interval_s} s; kept ${s.retention_days} days outside campaigns.`;
   if (!s.reference_enabled) {
-    $('det-info').innerHTML = `Désactivée. Activez-la dans <code>config.local.json</code> (<code>"reference": {"enabled": true}</code>) pour comparer
-      les avions reçus à ceux que voit le réseau communautaire autour de la station : on obtient le pourcentage d'avions détectés selon la
-      distance. <b>La requête transmet la position de la station au service interrogé</b> (par défaut api.adsb.lol).`;
+    $('det-info').innerHTML = `Disabled. Enable it in <code>config.local.json</code> (<code>"reference": {"enabled": true}</code>) to compare the aircraft you
+      receive with those seen by a community network around the station: you get the share of aircraft detected versus distance.
+      <b>The request sends the station position to the queried service</b> (api.adsb.lol by default).`;
     $('p-det').style.display = 'none';
   } else {
     const d = await get(`/api/detection?${periodQ()}`);
-    $('det-info').innerHTML = d.samples ? `${fmt(d.samples)} avions de référence sur la période.` : 'Pas encore de données de référence.';
+    $('det-info').innerHTML = d.samples ? `${fmt(d.samples)} reference aircraft over the period.` : 'No reference data yet.';
     if (d.samples) {
       $('p-det').style.display = 'block';
       plot('p-det', [{ type: 'bar', x: d.by_dist.map(b => `${b.from}–${b.to} km`), y: d.by_dist.map(b => b.p), marker: { color: C.accent },
         text: d.by_dist.map(b => b.p == null ? '' : fmt(b.p) + ' %'), textposition: 'outside' }],
-        { showlegend: false, yaxis: { range: [0, 110], title: '% détectés', gridcolor: C.line, color: C.muted }, xaxis: { color: C.muted } });
+        { showlegend: false, yaxis: { range: [0, 110], title: '% detected', gridcolor: C.line, color: C.muted }, xaxis: { color: C.muted } });
     }
   }
 }
@@ -547,9 +552,9 @@ $('c-start').onclick = async () => {
   try { await post('/api/campaigns', { action: 'start', name: $('c-name').value, notes: $('c-notes').value }); $('c-name').value = ''; $('c-notes').value = ''; camp(); }
   catch (e) { alert(e.message); }
 };
-$('alt-save').onclick = async () => { try { await post('/api/config', { antenna_alt_m: $('alt').value }); await loadMeta(); alert('Altitude enregistrée.'); } catch (e) { alert(e.message); } };
+$('alt-save').onclick = async () => { try { await post('/api/config', { antenna_alt_m: $('alt').value }); await loadMeta(); alert('Altitude saved.'); } catch (e) { alert(e.message); } };
 
-// ---------------------------------------------------------------- boucle
+// ---------------------------------------------------------------- main loop
 async function refresh() {
   try {
     if (state.tab === 'live') await live();
