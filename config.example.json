@@ -1,0 +1,12 @@
+{
+  "antenna_alt_m": 250,
+  "geoid_offset_m": 0,
+  "sample_interval_s": 10,
+  "retention_days": 7,
+  "port": 5002,
+  "reference": {
+    "enabled": false,
+    "radius_nm": 150,
+    "interval_s": 60
+  }
+}

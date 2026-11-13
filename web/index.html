@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Antenna Range Analyser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+:root { --bg:#0b0f14; --panel:#121820; --panel-2:#18202a; --line:#222c38; --text:#e6edf3; --muted:#7d8b99;
+  --accent:#3fb6ff; --ok:#3ddc84; --warn:#ffb020; --danger:#ff4d5e; --violet:#9b7cff; --mono:'JetBrains Mono',ui-monospace,Consolas,monospace; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font:13px/1.45 Inter,system-ui,sans-serif; }
+header { display:flex; align-items:center; gap:16px; padding:0 18px; height:54px; background:var(--panel); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:15px; white-space:nowrap; }
+.brand svg { width:24px; height:24px; color:var(--accent); }
+.live { width:8px; height:8px; border-radius:50%; background:var(--ok); animation:pulse 2s infinite; }
+@keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(61,220,132,.6);} 70% { box-shadow:0 0 0 8px rgba(61,220,132,0);} 100% { box-shadow:0 0 0 0 rgba(61,220,132,0);} }
+nav { display:flex; gap:2px; margin-left:12px; }
+nav button { background:none; border:0; color:var(--muted); font:600 13px Inter,sans-serif; padding:0 14px; height:54px; border-bottom:2px solid transparent; cursor:pointer; }
+nav button.on { color:var(--text); border-bottom-color:var(--accent); }
+.spacer { flex:1; }
+select, input, .btn { height:32px; background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:7px; padding:0 10px; font:500 13px Inter,sans-serif; }
+.btn { cursor:pointer; font-weight:600; }
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#04121d; }
+.btn.danger { color:var(--danger); }
+main { padding:18px; max-width:1500px; margin:0 auto; }
+.tab { display:none; } .tab.on { display:block; }
+.grid { display:grid; gap:14px; }
+.g2 { grid-template-columns:1fr 1fr; } .g3 { grid-template-columns:repeat(3,1fr); } .g4 { grid-template-columns:repeat(4,1fr); }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; min-width:0; }
+.card h2 { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; font-weight:600; margin-bottom:10px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+.card h2 span { text-transform:none; letter-spacing:0; font-weight:500; }
+.kpi .v { font:700 26px var(--mono); } .kpi .k { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.6px; }
+.kpi .s { color:var(--muted); font-size:12px; margin-top:2px; }
+.plot { width:100%; height:440px; } .plot.tall { height:560px; }
+.ctrl { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.ctrl label { color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.6px; }
+.note { color:var(--muted); font-size:12px; line-height:1.6; }
+.note b { color:var(--text); }
+table { width:100%; border-collapse:collapse; } td, th { padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; }
+th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.6px; font-weight:600; }
+td.n { font-family:var(--mono); text-align:right; }
+.pill { display:inline-block; padding:1px 8px; border-radius:10px; font:600 11px var(--mono); background:rgba(61,220,132,.15); color:var(--ok); }
+.warnbox { border:1px solid rgba(255,176,32,.4); background:rgba(255,176,32,.08); color:#ffd27a; border-radius:10px; padding:10px 12px; margin-bottom:14px; display:none; }
+.pos { color:var(--ok); } .neg { color:var(--danger); }
+@media (max-width:1000px) { .g2,.g3,.g4 { grid-template-columns:1fr; } nav { overflow-x:auto; } header { flex-wrap:wrap; height:auto; padding:8px 12px; } nav button { height:40px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 13v8"/><path d="M8.5 9.5a5 5 0 0 1 7 0"/><path d="M5.6 6.6a9 9 0 0 1 12.8 0"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>
+    Antenna Range Analyser <span class="live"></span>
+  </div>
+  <nav id="nav">
+    <button data-t="live" class="on">Temps réel</button>
+    <button data-t="range">Portée</button>
+    <button data-t="pattern">Diagramme</button>
+    <button data-t="compare">Comparaison</button>
+    <button data-t="camp">Campagnes &amp; réglages</button>
+  </nav>
+  <div class="spacer"></div>
+  <label class="note" for="period">Période</label>
+  <select id="period"></select>
+</header>
+
+<main>
+  <div class="warnbox" id="warn-alt">Altitude de l'antenne non renseignée : la portée est disponible, mais pas le diagramme de rayonnement
+    (il faut l'élévation de chaque avion). Renseignez-la dans <b>Campagnes &amp; réglages</b> : les mesures déjà collectées seront utilisées.</div>
+
+  <!-- ===================================================== TEMPS RÉEL -->
+  <section class="tab on" id="t-live">
+    <div class="grid g4" style="margin-bottom:14px">
+      <div class="card kpi"><div class="k">Avions positionnés</div><div class="v" id="k-ac">–</div><div class="s" id="k-ac2"></div></div>
+      <div class="card kpi"><div class="k">Messages / min</div><div class="v" id="k-msg">–</div><div class="s">dernière minute (readsb)</div></div>
+      <div class="card kpi"><div class="k">Signal / bruit</div><div class="v" id="k-sig">–</div><div class="s" id="k-sig2"></div></div>
+      <div class="card kpi"><div class="k">Plus loin à l'instant</div><div class="v" id="k-far">–</div><div class="s" id="k-far2"></div></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h2>Avions reçus <span>azimut / distance, couleur = RSSI</span></h2><div class="plot" id="p-live"></div></div>
+      <div class="card"><h2>RSSI en fonction de la distance <span>pente théorique : −20 dB par décade</span></h2><div class="plot" id="p-rssi"></div></div>
+    </div>
+  </section>
+
+  <!-- ===================================================== PORTÉE -->
+  <section class="tab" id="t-range">
+    <div class="ctrl">
+      <label>Altitude des avions</label>
+      <select id="band"><option value="all">Toutes</option><option value="low">&lt; 10 000 ft</option><option value="mid">10 000 – 25 000 ft</option><option value="high">&gt; 25 000 ft</option></select>
+      <span class="note" id="range-info"></span>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h2>Portée par azimut <span>maximum, 95e centile et médiane</span></h2><div class="plot tall" id="p-range"></div></div>
+      <div class="card"><h2>Lecture</h2>
+        <div class="note" id="range-read"></div>
+        <h2 style="margin-top:16px">Secteurs</h2>
+        <table id="range-table"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== DIAGRAMME -->
+  <section class="tab" id="t-pattern">
+    <div class="ctrl">
+      <label>Correction par avion</label><select id="corr"><option value="1">Oui</option><option value="0">Non</option></select>
+      <label>Plan horizontal : élévation</label>
+      <select id="elband"><option value="0,3">0 à 3°</option><option value="0,10" selected>0 à 10°</option><option value="3,10">3 à 10°</option><option value="10,30">10 à 30°</option><option value="-2,90">toutes</option></select>
+      <label>Plan vertical : secteur</label>
+      <select id="sector"><option value="">tous azimuts</option></select>
+      <span class="note" id="pat-info"></span>
+    </div>
+    <div class="grid g2" style="margin-bottom:14px">
+      <div class="card"><h2>Plan horizontal <span id="h-sub">gain relatif (dB)</span></h2><div class="plot" id="p-h"></div></div>
+      <div class="card"><h2>Plan vertical <span id="v-sub">gain relatif (dB) selon l'élévation</span></h2><div class="plot" id="p-v"></div></div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h2>Diagramme 3D mesuré <span>rayon et couleur = gain relatif</span></h2><div class="plot tall" id="p-3d"></div></div>
+      <div class="card"><h2>Méthode et limites</h2>
+        <div class="note">
+          <p>Pour chaque avion, readsb mesure la puissance reçue (<b>RSSI</b>, dBFS). On la corrige de l'affaiblissement en espace libre
+            (<b>FSPL</b>, 20 log d + 20 log f + 32,44) : il reste le gain de l'antenne dans la direction de l'avion, plus la puissance
+            propre de son transpondeur.</p>
+          <p style="margin-top:8px"><b>Correction par avion</b> : la part propre à chaque transpondeur (125 à 500 W, câblage, antenne)
+            est estimée par moindres carrés alternés sur toutes ses positions, puis retirée. Le niveau moyen est conservé, ce qui
+            permet de comparer deux campagnes en absolu.</p>
+          <p style="margin-top:8px"><b>Limites</b> : aux grandes distances, seuls les signaux assez forts sont décodés, ce qui surestime
+            un peu le gain aux très basses élévations ; le RSSI sature au-dessus de −3 dBFS (points écartés) ; l'élévation dépend de
+            l'altitude de l'antenne saisie. Chaque case affichée réunit au moins 5 mesures (médiane).</p>
+          <p style="margin-top:8px" id="pat-counts"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== COMPARAISON -->
+  <section class="tab" id="t-compare">
+    <div class="ctrl">
+      <label>A (référence)</label><select id="cmp-a"></select>
+      <label>B (modifiée)</label><select id="cmp-b"></select>
+      <button class="btn primary" id="cmp-go">Comparer</button>
+      <span class="note">Comparez des périodes de durée et d'horaires proches : le trafic change d'un jour à l'autre.</span>
+    </div>
+    <div class="grid g4" style="margin-bottom:14px" id="cmp-kpi"></div>
+    <div class="grid g2" style="margin-bottom:14px">
+      <div class="card"><h2>Portée (95e centile) <span>A et B</span></h2><div class="plot" id="p-cmp-range"></div></div>
+      <div class="card"><h2>Gain, plan horizontal <span>niveau absolu, élévation 0 à 10°</span></h2><div class="plot" id="p-cmp-h"></div></div>
+    </div>
+    <div class="card"><h2>Écart B − A par azimut <span>gain (dB) et portée (km)</span></h2><div class="plot" id="p-cmp-delta"></div></div>
+  </section>
+
+  <!-- ===================================================== CAMPAGNES -->
+  <section class="tab" id="t-camp">
+    <div class="grid g2">
+      <div class="card">
+        <h2>Campagnes de mesure</h2>
+        <p class="note" style="margin-bottom:10px">Une campagne marque une configuration d'antenne (« dipôle seul », « avec déflecteur »…).
+          Démarrez-la quand l'antenne est en place, arrêtez-la avant de modifier l'installation. Ses échantillons sont conservés
+          sans limite de durée.</p>
+        <div class="ctrl"><input id="c-name" placeholder="Nom (ex. avec déflecteur)" style="flex:1;min-width:180px">
+          <input id="c-notes" placeholder="Notes (hauteur, câble…)" style="flex:1;min-width:180px">
+          <button class="btn primary" id="c-start">Démarrer</button></div>
+        <table id="c-table"></table>
+      </div>
+      <div class="card">
+        <h2>Réglages</h2>
+        <div class="ctrl"><label for="alt">Altitude de l'antenne (m, au-dessus de la mer)</label>
+          <input id="alt" type="number" step="1" style="width:110px"><button class="btn" id="alt-save">Enregistrer</button></div>
+        <p class="note">Altitude du sol plus hauteur du mât. Elle sert à calculer l'angle d'élévation de chaque avion et l'horizon radio.
+          L'élévation est recalculée à l'analyse : une correction s'applique aussi aux mesures déjà collectées.</p>
+        <h2 style="margin-top:16px">État</h2>
+        <div class="note" id="status"></div>
+        <h2 style="margin-top:16px">Probabilité de détection <span>référence externe</span></h2>
+        <div class="note" id="det-info"></div>
+        <div class="plot" id="p-det" style="height:300px;display:none"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const fmt = (v, d = 0) => v == null ? '–' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: d, minimumFractionDigits: d });
+const C = { text: '#e6edf3', muted: '#7d8b99', line: '#222c38', accent: '#3fb6ff', ok: '#3ddc84', warn: '#ffb020', violet: '#9b7cff', danger: '#ff4d5e' };
+const BASE = { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { family: 'Inter, sans-serif', color: C.text, size: 12 },
+               margin: { l: 40, r: 40, t: 20, b: 40 }, showlegend: true, legend: { orientation: 'h', y: -0.08, font: { color: C.muted } } };
+const POLAR_AXIS = { gridcolor: C.line, linecolor: C.line, tickfont: { color: C.muted, size: 10 } };
+const RADIAL_KM = { ...POLAR_AXIS, ticksuffix: ' km', angle: 135, tickangle: 45, nticks: 5 };
+const CONF = { displaylogo: false, responsive: true, modeBarButtonsToRemove: ['select2d', 'lasso2d'] };
+const plot = (id, data, layout) => Plotly.react(id, data, { ...BASE, ...layout }, CONF);
+async function get(u) { const r = await fetch(u, { cache: 'no-store' }); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; }
+async function post(u, b) { const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; }
+
+const state = { tab: 'live', campaigns: [], status: null };
+const periodQ = () => { const v = $('period').value; return v.startsWith('c') ? `campaign=${v.slice(1)}` : `campaign=${v}`; };
+
+// ---------------------------------------------------------------- onglets et périodes
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+  state.tab = b.dataset.t;
+  document.querySelectorAll('#nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 't-' + state.tab));
+  refresh();
+});
+function periodOptions(sel, withLast = true) {
+  const opts = (withLast ? [['h1', 'Dernière heure'], ['h6', '6 dernières heures'], ['h24', '24 dernières heures'], ['h168', '7 derniers jours']] : [])
+    .concat(state.campaigns.map(c => ['c' + c.id, `Campagne : ${c.name}${c.t1 ? '' : ' (en cours)'}`]));
+  const cur = sel.value;
+  sel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+async function loadMeta() {
+  state.campaigns = await get('/api/campaigns');
+  state.status = await get('/api/status');
+  periodOptions($('period')); if (!$('period').dataset.init) { $('period').value = 'h24'; $('period').dataset.init = 1; }
+  for (const id of ['cmp-a', 'cmp-b']) periodOptions($(id));
+  $('warn-alt').style.display = state.status.antenna_alt_m == null ? 'block' : 'none';
+  if (document.activeElement !== $('alt')) $('alt').value = state.status.antenna_alt_m ?? '';
+}
+$('period').onchange = refresh;
+
+// ---------------------------------------------------------------- temps réel
+async function live() {
+  const d = await get('/api/live');
+  const ac = d.aircraft;
+  $('k-ac').textContent = ac.length;
+  $('k-ac2').textContent = `${ac.filter(a => a.rssi != null).length} avec RSSI`;
+  $('k-msg').textContent = fmt(d.stats.messages_1min);
+  $('k-sig').textContent = d.stats.signal != null ? `${fmt(d.stats.signal, 1)} / ${fmt(d.stats.noise, 1)}` : '–';
+  $('k-sig2').textContent = d.stats.strong_signals != null ? `dBFS · ${d.stats.strong_signals} signaux forts (> −3 dBFS)` : 'dBFS';
+  const far = ac.reduce((m, a) => (!m || a.dist_km > m.dist_km) ? a : m, null);
+  $('k-far').textContent = far ? `${fmt(far.dist_km)} km` : '–';
+  $('k-far2').textContent = far ? `${far.flight || far.hex.toUpperCase()} · ${fmt(far.az)}° · FL${fmt((far.alt_ft || 0) / 100)}` : '';
+  plot('p-live', [{ type: 'scatterpolar', mode: 'markers', r: ac.map(a => a.dist_km), theta: ac.map(a => a.az),
+    text: ac.map(a => `${a.flight || a.hex.toUpperCase()}<br>${fmt(a.dist_km)} km · ${fmt(a.az)}°<br>${fmt(a.alt_ft)} ft · RSSI ${fmt(a.rssi, 1)}`),
+    hoverinfo: 'text', marker: { size: 8, color: ac.map(a => a.rssi), colorscale: 'Jet', cmin: -35, cmax: -3,
+      colorbar: { title: { text: 'dBFS', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .7 }, line: { width: 0 } }, showlegend: false }],
+    { polar: { bgcolor: 'rgba(0,0,0,0)', radialaxis: RADIAL_KM,
+               angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } } });
+  const w = ac.filter(a => a.rssi != null && a.dist_km > 1);
+  const xs = [2, 5, 10, 20, 50, 100, 200, 400];
+  const ref = w.length ? Math.max(...w.map(a => a.rssi + 20 * Math.log10(a.dist_km))) : null;
+  plot('p-rssi', [
+    { type: 'scatter', mode: 'markers', x: w.map(a => a.dist_km), y: w.map(a => a.rssi), text: w.map(a => `${a.flight || a.hex} · ${fmt(a.alt_ft)} ft`), name: 'Avions',
+      marker: { size: 7, color: w.map(a => (a.alt_ft || 0) / 100), colorscale: 'Viridis', cmin: 0, cmax: 400,
+        colorbar: { title: { text: 'FL', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .7 } } },
+    ref == null ? {} : { type: 'scatter', mode: 'lines', x: xs, y: xs.map(x => ref - 20 * Math.log10(x)), name: 'Espace libre (enveloppe)', line: { color: C.warn, dash: 'dot' } }],
+    { xaxis: { type: 'log', title: 'distance (km)', gridcolor: C.line, color: C.muted }, yaxis: { title: 'RSSI (dBFS)', gridcolor: C.line, color: C.muted, range: [-45, 0] },
+      legend: { orientation: 'h', y: 1.08, font: { color: C.muted } }, margin: { l: 50, r: 30, t: 30, b: 45 } });
+}
+
+// ---------------------------------------------------------------- portée
+async function range() {
+  const d = await get(`/api/range?${periodQ()}&band=${$('band').value}`);
+  const th = d.az.concat(d.az[0]);
+  const close = v => v.concat(v[0]);
+  const traces = [
+    { type: 'scatterpolar', r: close(d.max), theta: th, name: 'Maximum', mode: 'lines', line: { color: C.violet, width: 1.5 }, connectgaps: true },
+    { type: 'scatterpolar', r: close(d.p95), theta: th, name: '95e centile', mode: 'lines', fill: 'toself', fillcolor: 'rgba(63,182,255,.18)', line: { color: C.accent, width: 2 }, connectgaps: true },
+    { type: 'scatterpolar', r: close(d.p50), theta: th, name: 'Médiane', mode: 'lines', line: { color: C.ok, width: 1.5, dash: 'dot' }, connectgaps: true },
+  ];
+  if (d.horizon_km) traces.push({ type: 'scatterpolar', r: Array(73).fill(d.horizon_km), theta: [...Array(73).keys()].map(i => i * 5), mode: 'lines',
+    name: `Horizon radio (FL${d.horizon_alt_ft / 100})`, line: { color: C.warn, dash: 'dash', width: 1 } });
+  plot('p-range', traces, { polar: { bgcolor: 'rgba(0,0,0,0)', radialaxis: RADIAL_KM, angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } } });
+  $('range-info').textContent = `${d.label} · ${fmt(d.total)} positions · ${fmt(d.aircraft)} avions`;
+  const sect = [['N', 337.5, 22.5], ['NE', 22.5, 67.5], ['E', 67.5, 112.5], ['SE', 112.5, 157.5], ['S', 157.5, 202.5], ['SO', 202.5, 247.5], ['O', 247.5, 292.5], ['NO', 292.5, 337.5]];
+  const rows = sect.map(([n, a, b]) => {
+    const ids = d.az.map((z, i) => i).filter(i => a < b ? d.az[i] >= a && d.az[i] < b : d.az[i] >= a || d.az[i] < b);
+    const vals = ids.map(i => d.p95[i]).filter(v => v != null), mx = ids.map(i => d.max[i]).filter(v => v != null);
+    return { n, p95: vals.length ? Math.max(...vals) : null, max: mx.length ? Math.max(...mx) : null, cnt: ids.reduce((s, i) => s + d.n[i], 0) };
+  });
+  $('range-table').innerHTML = '<tr><th>Secteur</th><th style="text-align:right">95e c.</th><th style="text-align:right">Max</th><th style="text-align:right">Positions</th></tr>' +
+    rows.map(r => `<tr><td>${r.n}</td><td class="n">${fmt(r.p95)} km</td><td class="n">${fmt(r.max)} km</td><td class="n">${fmt(r.cnt)}</td></tr>`).join('');
+  const ok = rows.filter(r => r.p95 != null).sort((a, b) => b.p95 - a.p95);
+  $('range-read').innerHTML = ok.length ? `Meilleur secteur : <b>${ok[0].n}</b> (${fmt(ok[0].p95)} km au 95e centile) ; le plus faible :
+    <b>${ok[ok.length - 1].n}</b> (${fmt(ok[ok.length - 1].p95)} km).` + (d.horizon_km ? ` L'horizon radio théorique pour un avion au FL${d.horizon_alt_ft / 100}
+    est de ${fmt(d.horizon_km)} km : un secteur nettement en deçà signale un masque (relief, bâtiment, mât) ou une antenne peu efficace dans cette direction.` : '')
+    + ' Le 95e centile est plus fiable que le maximum, sensible à un seul avion exceptionnel.' : 'Pas encore assez de données.';
+}
+
+// ---------------------------------------------------------------- diagramme
+for (let a = 0; a < 360; a += 45) $('sector').insertAdjacentHTML('beforeend', `<option value="${a}">${a}° ± 30°</option>`);
+async function pattern() {
+  const [lo, hi] = $('elband').value.split(',');
+  const sec = $('sector').value;
+  const d = await get(`/api/pattern?${periodQ()}&correct=${$('corr').value}&el_lo=${lo}&el_hi=${hi}` + (sec ? `&az=${sec}&half=30` : ''));
+  if (!d.samples) { $('pat-info').textContent = state.status?.antenna_alt_m == null ? 'Altitude de l\'antenne requise.' : 'Pas encore de mesures RSSI sur cette période.';
+    ['p-h', 'p-v', 'p-3d'].forEach(id => Plotly.purge(id)); return; }
+  const pk = d.peak, rel = v => v == null ? null : Math.max(v - pk, -30);
+  $('pat-info').textContent = `${d.label} · ${fmt(d.samples)} mesures · ${fmt(d.aircraft)} avions`;
+  // plan horizontal
+  const h = d.horizontal, hr = h.values.map(rel);
+  plot('p-h', [{ type: 'scatterpolar', r: hr.concat(hr[0]).map(v => v == null ? null : v + 30), theta: h.az.concat(h.az[0]), mode: 'lines+markers', connectgaps: false,
+    fill: 'toself', fillcolor: 'rgba(63,182,255,.15)', line: { color: C.accent, width: 2 }, marker: { size: 3 }, name: `élévation ${h.el_lo}–${h.el_hi}°`,
+    text: h.values.map((v, i) => `${h.az[i]}° : ${fmt(rel(v), 1)} dB (n = ${h.n[i]})`), hoverinfo: 'text' }],
+    { polar: { bgcolor: 'rgba(0,0,0,0)', radialaxis: { ...POLAR_AXIS, range: [0, 32], tickvals: [0, 10, 20, 30], ticktext: ['−30', '−20', '−10', '0 dB'] },
+               angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } } });
+  $('h-sub').textContent = `gain relatif (dB), élévation ${h.el_lo} à ${h.el_hi}°`;
+  // plan vertical
+  const v = d.vertical, vr = v.values.map(rel);
+  plot('p-v', [{ type: 'scatterpolar', r: vr.map(x => x == null ? null : x + 30), theta: v.el, mode: 'lines+markers', connectgaps: false,
+    fill: 'toself', fillcolor: 'rgba(155,124,255,.15)', line: { color: C.violet, width: 2 }, marker: { size: 3 }, name: sec ? `azimut ${sec}° ± 30°` : 'tous azimuts',
+    text: v.values.map((x, i) => `${v.el[i] - .5}° : ${fmt(rel(x), 1)} dB (n = ${v.n[i]})`), hoverinfo: 'text' }],
+    { polar: { bgcolor: 'rgba(0,0,0,0)', sector: [-5, 95], radialaxis: { ...POLAR_AXIS, range: [0, 32], tickvals: [0, 10, 20, 30], ticktext: ['−30', '−20', '−10', '0 dB'] },
+               angularaxis: { ...POLAR_AXIS, direction: 'counterclockwise', rotation: 0, ticksuffix: '°' } } });
+  $('v-sub').textContent = `gain relatif (dB) selon l'élévation, ${sec ? 'azimut ' + sec + '° ± 30°' : 'tous azimuts'}`;
+  // 3D
+  const g = d.grid, E = g.el_edges, X = [], Y = [], Z = [], S = [];
+  g.values.forEach((row, e) => {
+    const el = (E[e] + E[e + 1]) / 2; if (el > 60) return;
+    const xr = [], yr = [], zr = [], sr = [];
+    row.concat(row[0]).forEach((val, i) => {
+      const az = (g.az[i % 36]) * Math.PI / 180, r = val == null ? null : (rel(val) + 30) / 30, er = el * Math.PI / 180;
+      xr.push(r == null ? null : r * Math.cos(er) * Math.sin(az)); yr.push(r == null ? null : r * Math.cos(er) * Math.cos(az));
+      zr.push(r == null ? null : r * Math.sin(er)); sr.push(val == null ? null : rel(val));
+    });
+    X.push(xr); Y.push(yr); Z.push(zr); S.push(sr);
+  });
+  plot('p-3d', [{ type: 'surface', x: X, y: Y, z: Z, surfacecolor: S, colorscale: 'Jet', cmin: -30, cmax: 0, showscale: true,
+    colorbar: { title: { text: 'dB', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .7 }, connectgaps: false, hovertemplate: '%{surfacecolor:.1f} dB<extra></extra>' }],
+    { showlegend: false, margin: { l: 0, r: 0, t: 0, b: 0 }, scene: { aspectmode: 'data', bgcolor: 'rgba(0,0,0,0)',
+      xaxis: { title: 'Est', color: C.muted, gridcolor: C.line, zeroline: false }, yaxis: { title: 'Nord', color: C.muted, gridcolor: C.line, zeroline: false },
+      zaxis: { title: 'Haut', color: C.muted, gridcolor: C.line, zeroline: false }, camera: { eye: { x: 1.4, y: -1.4, z: .9 } } } });
+  const filled = g.n.flat().filter(n => n >= 5).length;
+  $('pat-counts').innerHTML = `Grille 3D : <b>${filled}</b> cases renseignées sur ${g.n.flat().length} (azimut 10° × ${E.length - 1} bandes d'élévation). Les trous sont des directions sans assez de mesures : elles se remplissent avec le temps.`;
+}
+['corr', 'elband', 'sector'].forEach(id => $(id).onchange = pattern);
+$('band').onchange = range;
+
+// ---------------------------------------------------------------- comparaison
+async function compare() {
+  const a = $('cmp-a').value, b = $('cmp-b').value;
+  const q = v => v.startsWith('c') ? v.slice(1) : v;
+  const d = await get(`/api/compare?a=${q(a)}&b=${q(b)}`);
+  const s = d.summary, sign = v => v == null ? '–' : (v > 0 ? '+' : '') + fmt(v, 1);
+  const cls = v => v == null ? '' : v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+  $('cmp-kpi').innerHTML = [
+    ['Écart de gain médian', `<span class="${cls(s.delta_gain_median_db)}">${sign(s.delta_gain_median_db)} dB</span>`, 'B − A, plan horizontal'],
+    ['Écart de portée médian', `<span class="${cls(s.delta_range_p95_median_km)}">${sign(s.delta_range_p95_median_km)} km</span>`, 'B − A, 95e centile par azimut'],
+    ['Mesures A', fmt(s.samples_a), esc(d.a.label)], ['Mesures B', fmt(s.samples_b), esc(d.b.label)],
+  ].map(([k, v, sub]) => `<div class="card kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`).join('');
+  const ra = d.a.range, rb = d.b.range, th = ra.az.concat(ra.az[0]), cl = v => v.concat(v[0]);
+  const polar = { bgcolor: 'rgba(0,0,0,0)', radialaxis: { ...POLAR_AXIS, angle: 135, tickangle: 45 }, angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } };
+  plot('p-cmp-range', [
+    { type: 'scatterpolar', r: cl(ra.p95), theta: th, name: 'A : ' + d.a.label, mode: 'lines', line: { color: C.muted, width: 2 }, connectgaps: true },
+    { type: 'scatterpolar', r: cl(rb.p95), theta: th, name: 'B : ' + d.b.label, mode: 'lines', fill: 'toself', fillcolor: 'rgba(63,182,255,.15)', line: { color: C.accent, width: 2 }, connectgaps: true }],
+    { polar: { ...polar, radialaxis: RADIAL_KM } });
+  const ha = d.a.pattern.horizontal, hb = d.b.pattern.horizontal;
+  if (ha && hb) {
+    const pk = Math.max(...ha.values.concat(hb.values).filter(v => v != null));
+    const r = vals => vals.map(v => v == null ? null : Math.max(v - pk, -30) + 30);
+    plot('p-cmp-h', [
+      { type: 'scatterpolar', r: r(ha.values), theta: ha.az, name: 'A', mode: 'lines', line: { color: C.muted, width: 2 } },
+      { type: 'scatterpolar', r: r(hb.values), theta: hb.az, name: 'B', mode: 'lines', line: { color: C.accent, width: 2 } }],
+      { polar: { ...polar, radialaxis: { ...POLAR_AXIS, range: [0, 32], tickvals: [0, 10, 20, 30], ticktext: ['−30', '−20', '−10', '0 dB'] } } });
+    plot('p-cmp-delta', [
+      { type: 'bar', x: hb.az, y: d.delta_gain, name: 'Écart de gain (dB)', marker: { color: d.delta_gain.map(v => v == null ? C.muted : v >= 0 ? C.ok : C.danger) } },
+      { type: 'scatter', mode: 'lines+markers', x: ra.az, y: d.delta_range_p95, name: 'Écart de portée (km)', yaxis: 'y2', line: { color: C.violet } }],
+      { xaxis: { title: 'azimut (°)', gridcolor: C.line, color: C.muted, dtick: 30 }, yaxis: { title: 'dB', gridcolor: C.line, color: C.muted, zerolinecolor: C.muted },
+        yaxis2: { title: 'km', overlaying: 'y', side: 'right', color: C.violet, showgrid: false }, margin: { l: 50, r: 50, t: 20, b: 50 } });
+  } else { ['p-cmp-h', 'p-cmp-delta'].forEach(id => Plotly.purge(id)); }
+}
+$('cmp-go').onclick = () => compare().catch(e => alert(e.message));
+
+// ---------------------------------------------------------------- campagnes et réglages
+async function camp() {
+  await loadMeta();
+  const fmtT = t => t ? new Date(t * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  $('c-table').innerHTML = '<tr><th>Nom</th><th>Début</th><th>Fin</th><th style="text-align:right">Mesures</th><th></th></tr>' +
+    state.campaigns.map(c => `<tr><td><b>${esc(c.name)}</b>${c.notes ? '<br><span class="note">' + esc(c.notes) + '</span>' : ''}</td>
+      <td>${fmtT(c.t0)}</td><td>${c.t1 ? fmtT(c.t1) : '<span class="pill">en cours</span>'}</td><td class="n">${fmt(c.samples)}</td>
+      <td style="text-align:right">${c.t1 ? '' : `<button class="btn" data-stop="${c.id}">Arrêter</button> `}<button class="btn danger" data-del="${c.id}">Supprimer</button></td></tr>`).join('');
+  document.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => { await post('/api/campaigns', { action: 'stop', id: +b.dataset.stop }); camp(); });
+  document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('Supprimer cette campagne ? Ses mesures retomberont dans la rétention normale.')) return;
+    await post('/api/campaigns', { action: 'delete', id: +b.dataset.del }); camp(); });
+  const s = state.status;
+  $('status').innerHTML = `<b>${fmt(s.samples)}</b> échantillons dont <b>${fmt(s.samples_with_gain)}</b> avec RSSI exploitable ;
+    depuis le ${s.first ? fmtT(s.first) : '–'} ; un échantillon par avion toutes les ${s.sample_interval_s} s ; conservation ${s.retention_days} jours hors campagne.`;
+  if (!s.reference_enabled) {
+    $('det-info').innerHTML = `Désactivée. Activez-la dans <code>config.local.json</code> (<code>"reference": {"enabled": true}</code>) pour comparer
+      les avions reçus à ceux que voit le réseau communautaire autour de la station : on obtient le pourcentage d'avions détectés selon la
+      distance. <b>La requête transmet la position de la station au service interrogé</b> (par défaut api.adsb.lol).`;
+    $('p-det').style.display = 'none';
+  } else {
+    const d = await get(`/api/detection?${periodQ()}`);
+    $('det-info').innerHTML = d.samples ? `${fmt(d.samples)} avions de référence sur la période.` : 'Pas encore de données de référence.';
+    if (d.samples) {
+      $('p-det').style.display = 'block';
+      plot('p-det', [{ type: 'bar', x: d.by_dist.map(b => `${b.from}–${b.to} km`), y: d.by_dist.map(b => b.p), marker: { color: C.accent },
+        text: d.by_dist.map(b => b.p == null ? '' : fmt(b.p) + ' %'), textposition: 'outside' }],
+        { showlegend: false, yaxis: { range: [0, 110], title: '% détectés', gridcolor: C.line, color: C.muted }, xaxis: { color: C.muted } });
+    }
+  }
+}
+$('c-start').onclick = async () => {
+  try { await post('/api/campaigns', { action: 'start', name: $('c-name').value, notes: $('c-notes').value }); $('c-name').value = ''; $('c-notes').value = ''; camp(); }
+  catch (e) { alert(e.message); }
+};
+$('alt-save').onclick = async () => { try { await post('/api/config', { antenna_alt_m: $('alt').value }); await loadMeta(); alert('Altitude enregistrée.'); } catch (e) { alert(e.message); } };
+
+// ---------------------------------------------------------------- boucle
+async function refresh() {
+  try {
+    if (state.tab === 'live') await live();
+    else if (state.tab === 'range') await range();
+    else if (state.tab === 'pattern') await pattern();
+    else if (state.tab === 'compare') { if (!$('cmp-kpi').innerHTML) await compare(); }
+    else if (state.tab === 'camp') await camp();
+  } catch (e) { console.error(e); }
+}
+(async () => {
+  await loadMeta();
+  if (state.campaigns.length >= 2) { $('cmp-a').value = 'c' + state.campaigns[1].id; $('cmp-b').value = 'c' + state.campaigns[0].id; }
+  else { $('cmp-a').value = 'h24'; $('cmp-b').value = 'h1'; }
+  refresh();
+  setInterval(() => { if (state.tab === 'live') live().catch(() => {}); }, 2000);
+  setInterval(() => { if (['range', 'pattern'].includes(state.tab)) refresh(); loadMeta().catch(() => {}); }, 30000);
+})();
+</script>
+</body>
+</html>
