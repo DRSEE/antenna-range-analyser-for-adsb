@@ -209,3 +209,78 @@ def detection(store, t0, t1):
         m = (az_i == i) & (dist < 200)
         by_az.append(_r(det[m].mean() * 100) if m.sum() >= MIN_N else None)
     return {'samples': len(rows), 'by_dist': by_dist, 'by_az': by_az, 'az': [i * 10 + 5 for i in range(36)]}
+
+
+# ---------------------------------------------------------------- couverture 3D et masque d'horizon mesuré
+ALT_STEP_FT = 2000
+
+
+@cached
+def coverage_volume(store, t0, t1, antenna_alt_m=None, az_step=10):
+    """Portée (90e centile) par azimut et par tranche d'altitude : l'enveloppe 3D de la couverture."""
+    d = _load(store, t0, t1, False, antenna_alt_m)
+    nb = int(360 / az_step)
+    bands = list(range(0, 42000, ALT_STEP_FT))
+    out = {'az': [i * az_step + az_step / 2 for i in range(nb)], 'alt_ft': [b + ALT_STEP_FT / 2 for b in bands],
+           'dist': [[None] * nb for _ in bands], 'n': [[0] * nb for _ in bands]}
+    if d is None:
+        return out
+    ok = np.isfinite(d['alt']) & np.isfinite(d['dist'])
+    az_i = (d['az'][ok] // az_step).astype(int) % nb
+    b_i = np.clip((d['alt'][ok] // ALT_STEP_FT).astype(int), 0, len(bands) - 1)
+    dist = d['dist'][ok]
+    for b in range(len(bands)):
+        for a in range(nb):
+            v = dist[(b_i == b) & (az_i == a)]
+            out['n'][b][a] = int(v.size)
+            if v.size >= 3:
+                out['dist'][b][a] = _r(np.percentile(v, 90))
+    return out
+
+
+@cached
+def measured_mask(store, t0, t1, antenna_alt_m, az_step=5):
+    """Élévation la plus basse à laquelle des avions sont reçus, par azimut (2e centile et minimum)."""
+    d = _load(store, t0, t1, False, antenna_alt_m)
+    nb = int(360 / az_step)
+    out = {'az': [i * az_step + az_step / 2 for i in range(nb)], 'p2': [None] * nb, 'min': [None] * nb, 'n': [0] * nb,
+           'p2_dist_km': [None] * nb}
+    if d is None or antenna_alt_m is None:
+        return out
+    ok = np.isfinite(d['el']) & (d['dist'] >= 5)
+    el, az, dist = d['el'][ok], d['az'][ok], d['dist'][ok]
+    idx = (az // az_step).astype(int) % nb
+    for i in range(nb):
+        m = idx == i
+        v = el[m]
+        out['n'][i] = int(v.size)
+        if v.size >= 20:
+            p2 = np.percentile(v, 2)
+            out['p2'][i] = _r(p2, 2)
+            out['min'][i] = _r(v.min(), 2)
+            near = np.abs(v - p2) <= 0.3
+            out['p2_dist_km'][i] = _r(np.median(dist[m][near])) if near.any() else None
+    return out
+
+
+def azimuth_points(store, t0, t1, az, half=2.5, limit=4000):
+    """Avions reçus dans un secteur étroit : distance et altitude (pour le profil RF)."""
+    con = store.connect()
+    lo, hi = (az - half) % 360, (az + half) % 360
+    cond = 'az BETWEEN ? AND ?' if lo < hi else '(az >= ? OR az <= ?)'
+    rows = con.execute(f'SELECT dist_km, alt_ft FROM samples WHERE t BETWEEN ? AND ? AND alt_ft IS NOT NULL AND {cond}',
+                       (t0, t1, lo, hi)).fetchall()
+    con.close()
+    if not rows:
+        return {'dist': [], 'alt_m': [], 'envelope': {'dist': [], 'alt_m': []}}
+    a = np.array(rows, dtype=float)
+    env_d, env_h = [], []
+    for k in range(0, 400, 10):
+        m = (a[:, 0] >= k) & (a[:, 0] < k + 10)
+        if m.sum() >= 3:
+            env_d.append(k + 5)
+            env_h.append(round(float(np.percentile(a[m, 1], 2)) * geo.FT))
+    if len(a) > limit:
+        a = a[np.random.default_rng(0).choice(len(a), limit, replace=False)]
+    return {'dist': a[:, 0].round(1).tolist(), 'alt_m': (a[:, 1] * geo.FT).round().tolist(),
+            'envelope': {'dist': env_d, 'alt_m': env_h}}

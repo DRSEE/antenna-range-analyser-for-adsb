@@ -58,6 +58,7 @@ td.n { font-family:var(--mono); text-align:right; }
     <button data-t="live" class="on">Temps réel</button>
     <button data-t="range">Portée</button>
     <button data-t="pattern">Diagramme</button>
+    <button data-t="relief">Relief &amp; 3D</button>
     <button data-t="compare">Comparaison</button>
     <button data-t="camp">Campagnes &amp; réglages</button>
   </nav>
@@ -131,6 +132,33 @@ td.n { font-family:var(--mono); text-align:right; }
           <p style="margin-top:8px" id="pat-counts"></p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== RELIEF & 3D -->
+  <section class="tab" id="t-relief">
+    <div class="ctrl">
+      <label>Exagération verticale</label>
+      <select id="exag"><option value="5">× 5</option><option value="10" selected>× 10</option><option value="20">× 20</option><option value="40">× 40</option></select>
+      <button class="btn" id="terrain-go" style="display:none">Charger le relief</button>
+      <span class="note" id="terrain-info"></span>
+    </div>
+    <div class="card" style="margin-bottom:14px"><h2>Couverture mesurée et relief <span>enveloppe : portée (90e centile) par azimut et par tranche de 2 000 ft</span></h2>
+      <div class="plot" id="p-cov3d" style="height:640px"></div></div>
+    <div class="grid g2" style="margin-bottom:14px">
+      <div class="card"><h2>Masque d'horizon <span>élévation la plus basse reçue, comparée au relief</span></h2><div class="plot" id="p-mask"></div>
+        <p class="note">Cliquez sur une direction pour afficher son profil.</p></div>
+      <div class="card"><h2>Diagnostic par secteur</h2><table id="mask-table"></table>
+        <p class="note" style="margin-top:10px">Le masque mesuré est l'élévation sous laquelle on ne capte plus d'avions (2e centile).
+          S'il dépasse nettement celui du relief, l'obstacle est local : bâtiment, toit, mur, mât. Sans trafic à basse altitude dans
+          une direction, le masque mesuré est surestimé.</p></div>
+    </div>
+    <div class="card"><h2>Profil RF <span id="prof-sub"></span></h2>
+      <div class="ctrl"><label>Azimut</label><input type="range" id="prof-az" min="0" max="359" value="200" style="flex:1"><b id="prof-az-v" style="font-family:var(--mono);min-width:48px">200°</b></div>
+      <div class="plot" id="p-prof" style="height:420px"></div>
+      <p class="note">Hauteurs « apparentes » : la courbure terrestre (rayon radio, k = 4/3) est retirée, si bien que les ondes se propagent en
+        ligne droite. Le rayon rasant part de l'antenne et frôle l'obstacle le plus haut ; la bande orange est la première zone de Fresnel
+        (17,3 √(d₁d₂ / (f·d)) m à 1 090 MHz) : un obstacle qui l'entame atténue déjà le signal.</p>
     </div>
   </section>
 
@@ -320,14 +348,134 @@ async function pattern() {
   });
   plot('p-3d', [{ type: 'surface', x: X, y: Y, z: Z, surfacecolor: S, colorscale: 'Jet', cmin: -30, cmax: 0, showscale: true,
     colorbar: { title: { text: 'dB', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .7 }, connectgaps: false, hovertemplate: '%{surfacecolor:.1f} dB<extra></extra>' }],
-    { showlegend: false, margin: { l: 0, r: 0, t: 0, b: 0 }, scene: { aspectmode: 'data', bgcolor: 'rgba(0,0,0,0)',
-      xaxis: { title: 'Est', color: C.muted, gridcolor: C.line, zeroline: false }, yaxis: { title: 'Nord', color: C.muted, gridcolor: C.line, zeroline: false },
-      zaxis: { title: 'Haut', color: C.muted, gridcolor: C.line, zeroline: false }, camera: { eye: { x: 1.4, y: -1.4, z: .9 } } } });
+    { showlegend: false, margin: { l: 0, r: 0, t: 0, b: 0 }, scene: { bgcolor: 'rgba(0,0,0,0)',
+      xaxis: { title: 'Est', color: C.muted, gridcolor: C.line, zeroline: false, range: [-1.05, 1.05] },
+      yaxis: { title: 'Nord', color: C.muted, gridcolor: C.line, zeroline: false, range: [-1.05, 1.05] },
+      zaxis: { title: 'Haut', color: C.muted, gridcolor: C.line, zeroline: false, range: [-0.1, 1.05] },
+      aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: .55 }, camera: { eye: { x: 1.5, y: -1.5, z: 1.1 } } } });
   const filled = g.n.flat().filter(n => n >= 5).length;
   $('pat-counts').innerHTML = `Grille 3D : <b>${filled}</b> cases renseignées sur ${g.n.flat().length} (azimut 10° × ${E.length - 1} bandes d'élévation). Les trous sont des directions sans assez de mesures : elles se remplissent avec le temps.`;
 }
 ['corr', 'elband', 'sector'].forEach(id => $(id).onchange = pattern);
 $('band').onchange = range;
+
+// ---------------------------------------------------------------- relief & 3D
+const relief_state = { terrain: null, cov: null };
+async function relief() {
+  const [t, c] = await Promise.all([get('/api/terrain'), get(`/api/coverage3d?${periodQ()}`)]);
+  relief_state.terrain = t; relief_state.cov = c;
+  const st = t.state;
+  $('terrain-go').style.display = st.status === 'prêt' ? 'none' : 'inline-flex';
+  $('terrain-info').innerHTML = st.status === 'prêt' ? 'Relief : tuiles AWS Terrain Tiles (≈ 400 m), 300 km autour de la station.'
+    : st.status === 'téléchargement' ? `Téléchargement du relief : ${st.tiles} / ${st.needed} tuiles…`
+    : st.status === 'erreur' ? 'Erreur : ' + esc(st.error)
+    : 'Relief non chargé. Le chargement télécharge une fois ≈ 40 tuiles d\'altitude (AWS, données ouvertes) : le service voit la zone couverte.';
+  draw3d(); drawMask(); await drawProfile();
+  if (st.status === 'téléchargement') setTimeout(() => state.tab === 'relief' && relief(), 3000);
+}
+$('terrain-go').onclick = async () => { await post('/api/terrain', { action: 'fetch' }); relief(); };
+$('exag').onchange = () => { draw3d(); };
+
+function draw3d() {
+  const t = relief_state.terrain, c = relief_state.cov, ex = +$('exag').value, h0 = (c.antenna_alt_m || 0);
+  const traces = [];
+  if (t.grid) {
+    traces.push({ type: 'surface', x: t.grid.x, y: t.grid.y, z: t.grid.z.map(row => row.map(v => v == null ? null : v / 1000 * ex)),
+      surfacecolor: t.grid.z, cmin: 0, cmax: 3500, showscale: false, hovertemplate: '%{surfacecolor} m<extra>relief</extra>',
+      colorscale: [[0, '#16301f'], [0.08, '#2f5a32'], [0.2, '#6f7f3e'], [0.35, '#8c7446'], [0.6, '#a89a8a'], [0.8, '#dcd6cf'], [1, '#ffffff']],
+      lighting: { ambient: .55, diffuse: .8, roughness: .9, specular: .05 }, lightposition: { x: -1e5, y: 1e5, z: 2e5 }, name: 'Relief' });
+  }
+  const v = c.volume, A = v.az.concat(v.az[0]);
+  const X = [], Y = [], Z = [], S = [];
+  v.dist.forEach((row, b) => {
+    if (row.filter(x => x != null).length < 6) return;
+    const alt = v.alt_ft[b] * 0.3048, rr = row.concat(row[0]);
+    X.push(rr.map((d, i) => d == null ? null : d * Math.sin(A[i] * Math.PI / 180)));
+    Y.push(rr.map((d, i) => d == null ? null : d * Math.cos(A[i] * Math.PI / 180)));
+    Z.push(rr.map(d => d == null ? null : alt / 1000 * ex)); S.push(rr.map(() => v.alt_ft[b]));
+    traces.push({ type: 'scatter3d', mode: 'lines', x: X[X.length - 1], y: Y[Y.length - 1], z: Z[Z.length - 1], connectgaps: false,
+      line: { color: v.alt_ft[b], colorscale: 'Viridis', cmin: 0, cmax: 40000, width: 3 }, showlegend: false, hoverinfo: 'skip' });
+  });
+  if (X.length > 1) traces.push({ type: 'surface', x: X, y: Y, z: Z, surfacecolor: S, cmin: 0, cmax: 40000, colorscale: 'Viridis', opacity: .38,
+    showscale: true, colorbar: { title: { text: 'ft', font: { color: C.muted } }, tickfont: { color: C.muted }, thickness: 10, len: .6 },
+    hovertemplate: 'FL%{surfacecolor:.0f}<extra>couverture</extra>'.replace('FL%{surfacecolor:.0f}', '%{surfacecolor:.0f} ft'), name: 'Couverture' });
+  traces.push({ type: 'scatter3d', mode: 'markers+text', x: [0], y: [0], z: [h0 / 1000 * ex + 2], text: ['antenne'], textfont: { color: C.warn },
+    marker: { size: 5, color: C.warn, symbol: 'diamond' }, showlegend: false, hoverinfo: 'text' });
+  plot('p-cov3d', traces, { showlegend: false, margin: { l: 0, r: 0, t: 0, b: 0 }, scene: {
+    aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: .35 }, bgcolor: 'rgba(0,0,0,0)',
+    xaxis: { title: 'km est', color: C.muted, gridcolor: C.line, zeroline: false, range: [-330, 330] },
+    yaxis: { title: 'km nord', color: C.muted, gridcolor: C.line, zeroline: false, range: [-330, 330] },
+    zaxis: { title: `altitude (km × ${ex})`, color: C.muted, gridcolor: C.line, zeroline: false },
+    camera: { eye: { x: -0.9, y: -1.5, z: .75 } } } });
+}
+
+function maskAt(az) {
+  const m = relief_state.terrain && relief_state.terrain.mask; if (!m) return null;
+  const i = m.az.indexOf(Math.round(az) % 360); return i < 0 ? null : { angle: m.angle[i], km: m.ridge_km[i], alt: m.ridge_alt_m[i] };
+}
+function drawMask() {
+  const mm = relief_state.cov.mask, t = relief_state.terrain, traces = [];
+  if (t.mask) traces.push({ type: 'scatterpolar', r: t.mask.angle.concat(t.mask.angle[0]), theta: t.mask.az.concat(t.mask.az[0]), mode: 'lines',
+    fill: 'toself', fillcolor: 'rgba(140,116,70,.35)', line: { color: '#b08a55', width: 1.5 }, name: 'Relief (prédit)',
+    text: t.mask.az.map((a, i) => `${a}° : ${t.mask.angle[i]}° — crête à ${t.mask.ridge_km[i]} km, ${t.mask.ridge_alt_m[i]} m`), hoverinfo: 'text' });
+  traces.push({ type: 'scatterpolar', r: mm.p2.concat(mm.p2[0]), theta: mm.az.concat(mm.az[0]), mode: 'lines+markers', connectgaps: false,
+    line: { color: C.accent, width: 2 }, marker: { size: 4 }, name: 'Mesuré (2e centile)',
+    text: mm.az.map((a, i) => `${a}° : ${mm.p2[i] ?? '–'}° (n = ${mm.n[i]})`), hoverinfo: 'text' });
+  plot('p-mask', traces, { polar: { bgcolor: 'rgba(0,0,0,0)', radialaxis: { ...POLAR_AXIS, range: [-1, 6], ticksuffix: '°', angle: 135, tickangle: 45 },
+    angularaxis: { ...POLAR_AXIS, direction: 'clockwise', rotation: 90 } } });
+  $('p-mask').removeAllListeners && $('p-mask').removeAllListeners('plotly_click');
+  $('p-mask').on('plotly_click', ev => { const az = ev.points[0].theta; $('prof-az').value = Math.round(az) % 360; drawProfile(); });
+  // diagnostic par secteur
+  const sect = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SO', 225], ['O', 270], ['NO', 315]];
+  $('mask-table').innerHTML = '<tr><th>Secteur</th><th style="text-align:right">Relief</th><th style="text-align:right">Mesuré</th><th>Lecture</th></tr>' +
+    sect.map(([n, c]) => {
+      const bins = mm.az.map((a, i) => i).filter(i => Math.abs(((mm.az[i] - c + 540) % 360) - 180) <= 22.5);
+      const meas = bins.map(i => mm.p2[i]).filter(x => x != null), nlow = bins.reduce((s, i) => s + mm.n[i], 0);
+      const ter = bins.map(i => maskAt(mm.az[i])).filter(Boolean);
+      const tMax = ter.length ? ter.reduce((a, b) => b.angle > a.angle ? b : a) : null;
+      const mMed = meas.length ? meas.sort((a, b) => a - b)[Math.floor(meas.length / 2)] : null;
+      let txt;
+      if (mMed == null) txt = '<span class="note">trafic insuffisant à basse élévation</span>';
+      else if (tMax && mMed - tMax.angle > 1) txt = `<b class="neg">obstacle local probable</b> : le relief (${fmt(tMax.angle, 1)}°) n'explique pas le masque`;
+      else if (tMax && tMax.angle >= 0.3) txt = `<b style="color:#d6b27a">relief</b> : crête à ${fmt(tMax.km)} km, ${fmt(tMax.alt)} m`;
+      else txt = `<span class="pos">dégagé</span>`;
+      return `<tr><td><a href="#" data-az="${c}" style="color:var(--accent)">${n}</a></td><td class="n">${tMax ? fmt(tMax.angle, 1) + '°' : '–'}</td>
+        <td class="n">${mMed != null ? fmt(mMed, 1) + '°' : '–'}</td><td>${txt}</td></tr>`;
+    }).join('');
+  document.querySelectorAll('#mask-table [data-az]').forEach(a => a.onclick = e => { e.preventDefault(); $('prof-az').value = a.dataset.az; drawProfile(); });
+}
+
+async function drawProfile() {
+  const az = +$('prof-az').value; $('prof-az-v').textContent = az + '°';
+  const d = await get(`/api/profile?${periodQ()}&az=${az}`);
+  const h0 = d.antenna_alt_m || 0, K = 2 * 4 / 3 * 6371, drop = x => x * x / K * 1000, traces = [];
+  if (d.terrain) {
+    const te = d.terrain;
+    traces.push({ type: 'scatter', x: te.dist, y: te.alt_m.map((h, i) => h == null ? null : h - te.drop_m[i]), mode: 'lines', fill: 'tozeroy',
+      fillcolor: 'rgba(140,116,70,.45)', line: { color: '#b08a55', width: 1 }, name: 'Relief (hauteur apparente)',
+      customdata: te.alt_m, hovertemplate: '%{x} km : relief %{customdata} m<extra></extra>' });
+    const m = maskAt(az);
+    if (m) {
+      const D = 320, xs = [...Array(65).keys()].map(i => i * 5), tan = Math.tan(m.angle * Math.PI / 180);
+      const los = xs.map(x => h0 + x * 1000 * tan), fr = xs.map(x => 17.32 * Math.sqrt(Math.max(x * (D - x), 0) / (1.09 * D)));
+      traces.push({ type: 'scatter', x: xs.concat([...xs].reverse()), y: los.map((y, i) => y + fr[i]).concat(los.map((y, i) => y - fr[i]).reverse()),
+        fill: 'toself', fillcolor: 'rgba(255,176,32,.12)', line: { width: 0 }, name: '1re zone de Fresnel', hoverinfo: 'skip' });
+      traces.push({ type: 'scatter', x: xs, y: los, mode: 'lines', line: { color: C.warn, width: 1.5, dash: 'dash' },
+        name: `Rayon rasant (${fmt(m.angle, 2)}°, crête à ${fmt(m.km)} km, ${fmt(m.alt)} m)`, hoverinfo: 'skip' });
+    }
+  }
+  const ac = d.aircraft;
+  traces.push({ type: 'scattergl', mode: 'markers', x: ac.dist, y: ac.alt_m.map((h, i) => h - drop(ac.dist[i])), name: 'Avions reçus (±2,5°)',
+    marker: { size: 3, color: 'rgba(63,182,255,.45)' }, hovertemplate: '%{x} km<extra></extra>' });
+  traces.push({ type: 'scatter', mode: 'lines', x: ac.envelope.dist, y: ac.envelope.alt_m.map((h, i) => h - drop(ac.envelope.dist[i])),
+    name: 'Plus bas reçu (2e centile)', line: { color: C.accent, width: 2.5 } });
+  traces.push({ type: 'scatter', mode: 'markers', x: [0], y: [h0], name: 'Antenne', marker: { color: C.warn, size: 9, symbol: 'diamond' } });
+  plot('p-prof', traces, { xaxis: { title: 'distance (km)', gridcolor: C.line, color: C.muted, range: [0, 320] },
+    yaxis: { title: 'hauteur apparente (m)', gridcolor: C.line, color: C.muted, range: [-2000, 9000] },
+    legend: { orientation: 'h', y: 1.12, font: { color: C.muted } }, margin: { l: 60, r: 20, t: 40, b: 45 } });
+  $('prof-sub').textContent = `azimut ${az}° · ${fmt(ac.dist.length)} positions · ${d.label}`;
+}
+let profTimer; $('prof-az').oninput = () => { $('prof-az-v').textContent = $('prof-az').value + '°'; clearTimeout(profTimer); profTimer = setTimeout(drawProfile, 250); };
 
 // ---------------------------------------------------------------- comparaison
 async function compare() {
@@ -407,6 +555,7 @@ async function refresh() {
     if (state.tab === 'live') await live();
     else if (state.tab === 'range') await range();
     else if (state.tab === 'pattern') await pattern();
+    else if (state.tab === 'relief') await relief();
     else if (state.tab === 'compare') { if (!$('cmp-kpi').innerHTML) await compare(); }
     else if (state.tab === 'camp') await camp();
   } catch (e) { console.error(e); }

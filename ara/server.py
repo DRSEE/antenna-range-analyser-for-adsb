@@ -5,13 +5,18 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+from threading import Thread
+
 from . import analysis
-from .config import LOCAL, ROOT
+from .config import LOCAL, ROOT, receiver_position
+from .terrain import Terrain
 
 WEB = os.path.join(ROOT, 'web')
 
 
 def make_handler(cfg, store, collector):
+    terrain = Terrain(cfg['data_dir'])
+    terrain_cache = {}
     def period(q, key='campaign'):
         c = q.get(key, [''])[0]
         if c.startswith('h'):                        # « h24 » : dernières 24 h
@@ -78,6 +83,32 @@ def make_handler(cfg, store, collector):
                     out = analysis.compare(store, period(q, 'a'), period(q, 'b'), cfg['antenna_alt_m'],
                                            num(q, 'el_lo', 0.0), num(q, 'el_hi', 10.0))
                     return self.send(200, out)
+                if u.path == '/api/terrain':
+                    lat0, lon0 = receiver_position(cfg)
+                    out = {'state': terrain.state, 'antenna_alt_m': cfg['antenna_alt_m']}
+                    if terrain.state['status'] == 'prêt' and lat0 is not None and cfg['antenna_alt_m'] is not None:
+                        key = (cfg['antenna_alt_m'],)
+                        if terrain_cache.get('key') != key:
+                            terrain_cache.update(key=key, mask=terrain.mask(lat0, lon0, cfg['antenna_alt_m']),
+                                                 grid=terrain.grid(lat0, lon0))
+                        out.update(mask=terrain_cache['mask'], grid=terrain_cache['grid'])
+                    return self.send(200, out)
+                if u.path == '/api/coverage3d':
+                    t0, t1, label = period(q)
+                    return self.send(200, {'label': label, 'antenna_alt_m': cfg['antenna_alt_m'],
+                                           'volume': analysis.coverage_volume(store, t0, t1, cfg['antenna_alt_m']),
+                                           'mask': analysis.measured_mask(store, t0, t1, cfg['antenna_alt_m'])})
+                if u.path == '/api/profile':
+                    t0, t1, label = period(q)
+                    az = num(q, 'az', 0.0) % 360
+                    out = {'label': label, 'az': az, 'antenna_alt_m': cfg['antenna_alt_m'],
+                           'aircraft': analysis.azimuth_points(store, t0, t1, az)}
+                    lat0, lon0 = receiver_position(cfg)
+                    if terrain.state['status'] == 'prêt' and lat0 is not None and cfg['antenna_alt_m'] is not None:
+                        d, h, drop, ang = terrain.profile(lat0, lon0, az, cfg['antenna_alt_m'])
+                        out['terrain'] = {'dist': d.round(1).tolist(), 'alt_m': [None if v != v else int(v) for v in h],
+                                          'drop_m': drop.round().tolist(), 'angle': [None if v != v else round(float(v), 3) for v in ang]}
+                    return self.send(200, out)
                 if u.path == '/api/detection':
                     t0, t1, label = period(q)
                     return self.send(200, {**analysis.detection(store, t0, t1), 'label': label})
@@ -109,6 +140,14 @@ def make_handler(cfg, store, collector):
                         store.delete_campaign(int(body['id']))
                         return self.send(200, {'ok': True})
                     raise ValueError('action inconnue')
+                if u.path == '/api/terrain':
+                    lat0, lon0 = receiver_position(cfg)
+                    if lat0 is None:
+                        raise ValueError('position du récepteur introuvable (receiver.json)')
+                    if terrain.state['status'] != 'téléchargement':
+                        Thread(target=terrain.fetch, args=(lat0, lon0), daemon=True).start()
+                        terrain_cache.clear()
+                    return self.send(200, {'ok': True})
                 if u.path == '/api/config':
                     alt = body.get('antenna_alt_m')
                     alt = None if alt in (None, '') else float(alt)

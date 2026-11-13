@@ -3,8 +3,9 @@
 Mesurez **le diagramme de rayonnement réel** et **la portée** de votre antenne ADS-B à partir des avions que vous recevez, puis
 comparez deux installations : antenne seule, avec déflecteur, plus haute, autre câble…
 
-L'outil tourne à côté de `readsb` (image ADSBexchange, piaware, adsb.im…). Il n'utilise que les données du récepteur, sans
-matériel ni service externe, et les affiche dans une page web en temps réel.
+L'outil tourne à côté de `readsb` (image ADSBexchange, piaware, adsb.im…). Les mesures viennent uniquement du récepteur, sans
+matériel supplémentaire, et s'affichent dans une page web en temps réel. En option, le relief (données ouvertes) permet de
+savoir si une zone d'ombre vient d'une montagne ou d'un obstacle tout proche.
 
 ![Portée par azimut](docs/images/portee.png)
 
@@ -17,6 +18,7 @@ matériel ni service externe, et les affiche dans une page web en temps réel.
 | **Temps réel** | Avions reçus (azimut, distance, RSSI), messages par minute, signal et bruit, RSSI en fonction de la distance avec la pente théorique d'espace libre |
 | **Portée** | Portée par azimut : maximum, 95e centile, médiane, par tranche d'altitude ; horizon radio théorique ; meilleur et plus faible secteur |
 | **Diagramme** | Diagramme de rayonnement **mesuré** : plan horizontal, plan vertical (selon l'élévation) et **diagramme 3D** |
+| **Relief & 3D** | Volume de couverture en 3D sur le relief ; masque d'horizon mesuré comparé à celui du relief ; diagnostic par secteur (relief ou obstacle local) ; profil RF d'un azimut avec rayon rasant et première zone de Fresnel |
 | **Comparaison** | Deux campagnes ou périodes superposées : écart de gain (dB) et de portée (km) par azimut |
 | **Campagnes & réglages** | Démarrer ou arrêter une campagne de mesure par configuration d'antenne ; altitude de l'antenne ; probabilité de détection (option) |
 
@@ -52,6 +54,17 @@ permet de comparer deux campagnes.
 L'élévation de chaque avion est calculée avec la courbure terrestre et la réfraction standard, à partir de l'altitude de
 l'antenne que vous renseignez. Elle est recalculée à chaque analyse : corriger l'altitude s'applique aussi au passé.
 
+**Masque d'horizon et relief** : dans chaque direction, l'élévation la plus basse à laquelle des avions sont encore reçus
+(2e centile) dessine ce qui bloque le signal. Elle est comparée au masque **prédit par le relief** : angle maximal du terrain
+vu de l'antenne, courbure terrestre et réfraction comprises, avec la crête responsable (distance, altitude).
+
+- masque mesuré ≈ masque du relief : c'est la montagne ;
+- masque mesuré nettement plus haut (plus de 1°) : **obstacle local** (immeuble, toit, mur, mât) que le relief n'explique pas.
+
+Le **profil RF** d'un azimut montre le relief en hauteur apparente (courbure retirée, les ondes vont en ligne droite), le rayon
+rasant qui frôle l'obstacle le plus haut, la première zone de Fresnel (`17,3 √(d₁d₂ / (f·d))` m) et tous les avions reçus dans
+cette direction.
+
 ### Limites à connaître
 
 - **Biais de détection** : aux grandes distances, seuls les signaux assez forts sont décodés, ce qui surestime un peu le gain
@@ -79,7 +92,7 @@ Les mesures d'une campagne sont conservées sans limite de durée. Les autres so
 
 ## Installation
 
-Prérequis : `readsb` (qui écrit `/run/readsb/aircraft.json`), Python 3.7 ou plus récent, `numpy`.
+Prérequis : `readsb` (qui écrit `/run/readsb/aircraft.json`), Python 3.7 ou plus récent, `numpy` ; `Pillow` pour le relief.
 
 ```bash
 git clone https://github.com/DRSEE/antenna-range-analyser-for-adsb.git ~/antenna-range-analyser
@@ -111,6 +124,13 @@ remplie tout de suite. Le diagramme de rayonnement se construit ensuite en temps
 
 La position de la station n'est jamais écrite dans le dépôt : elle est lue au besoin dans `receiver.json` de `readsb`.
 
+### Relief (option, à la demande)
+
+Le bouton **Charger le relief** (onglet Relief & 3D) télécharge une fois une cinquantaine de tuiles d'altitude du jeu de données
+ouvert [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (format Terrarium, zoom 8, ≈ 400 m par pixel), sur
+environ 300 km autour de la station. Elles sont gardées dans `data/terrain/`. **Le service voit la zone téléchargée** ; rien
+d'autre n'est transmis. Pillow (`python3-pil`) est nécessaire pour lire les tuiles.
+
 ### Probabilité de détection (option)
 
 Si `reference.enabled` vaut `true`, l'outil interroge chaque minute un réseau communautaire (par défaut `api.adsb.lol`) pour
@@ -129,6 +149,9 @@ pourquoi l'option est désactivée par défaut.
 | `GET /api/pattern?campaign=…&el_lo=0&el_hi=10&az=&half=30&correct=1` | Diagramme : grille 3D, plans horizontal et vertical |
 | `GET /api/compare?a=…&b=…` | Comparaison de deux campagnes ou périodes |
 | `GET /api/detection?campaign=…` | Probabilité de détection (référence externe) |
+| `GET /api/coverage3d?campaign=…` | Volume de couverture (azimut × altitude) et masque d'horizon mesuré |
+| `GET /api/terrain` · `POST /api/terrain` | Masque du relief et grille 3D · lancement du téléchargement du relief |
+| `GET /api/profile?az=…&campaign=…` | Profil RF : relief, avions reçus et enveloppe basse le long d'un azimut |
 | `GET/POST /api/campaigns` | Liste, démarrage, arrêt, suppression des campagnes |
 
 ## Tests
